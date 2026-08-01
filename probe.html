@@ -44,7 +44,7 @@
                 const peer = new Peer();
 
                 peer.on('open', () => {
-                    conn = peer.connect('us-sim-room-1');
+                    conn = peer.connect('us-sim-room-2');
                     
                     conn.on('open', () => {
                         document.getElementById('startBtn').innerText = 'Transmitting Live!';
