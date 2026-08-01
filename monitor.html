@@ -222,8 +222,7 @@
                 varying vec2 vUv;
 
                 void main() {
-                    // 1. Draw the fan shape
-                    vec2 center = vec2(0.5, 1.0);
+                    vec2 center = vec2(0.5, 1.0); // The tip of the probe
                     float dist = distance(vUv, center);
                     
                     if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) {
@@ -231,26 +230,56 @@
                         return;
                     }
 
-                    // 2. THE FIX: Map UVs to the exact local coordinates of our shifted plane
+                    // Map current pixel to 3D space
                     float localX = (vUv.x * 2.0) - 1.0;
                     float localY = (vUv.y * 2.0) - 2.0; 
                     vec4 localPos = vec4(localX, localY, 0.0, 1.0);
-                    
                     vec4 worldPos = u_matrix * localPos;
-                    
-                    // 3. Map world space to 3D texture coordinates (0.0 to 1.0)
                     vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
 
-                    // 4. THE FIX: Stop sampling outside the box to delete the streaks
                     if (texCoord.x < 0.0 || texCoord.x > 1.0 || 
                         texCoord.y < 0.0 || texCoord.y > 1.0 || 
                         texCoord.z < 0.0 || texCoord.z > 1.0) {
-                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); // Black space outside phantom
+                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                         return;
                     }
 
+                    // Get base density of the current pixel
                     float density = texture(u_volume, texCoord).r;
-                    gl_FragColor = vec4(density, density, density, 1.0);
+
+                    // ==========================================
+                    // ACOUSTIC SHADOWING (Raymarching)
+                    // ==========================================
+                    float shadowMultiplier = 1.0;
+                    
+                    // Draw a line from current pixel back up to the probe tip
+                    vec2 rayDir = center - vUv; 
+                    int steps = 15; // Number of samples to check along the path
+                    vec2 stepSize = rayDir / float(steps);
+                    
+                    vec2 checkUv = vUv;
+                    for(int i = 1; i <= 15; i++) {
+                        checkUv += stepSize;
+                        
+                        // Map the checked point to 3D space
+                        float sX = (checkUv.x * 2.0) - 1.0;
+                        float sY = (checkUv.y * 2.0) - 2.0;
+                        vec4 sLocal = vec4(sX, sY, 0.0, 1.0);
+                        vec4 sWorld = u_matrix * sLocal;
+                        vec3 sTexCoord = sWorld.xyz * 0.5 + 0.5;
+                        
+                        // Sample the density above us
+                        float densityAbove = texture(u_volume, sTexCoord).r;
+                        
+                        // If a pixel above us is highly dense (bone is > 0.9 in shader math), block the sound!
+                        if (densityAbove > 0.9) {
+                            shadowMultiplier = 0.1; // Block 90% of the brightness
+                            break;
+                        }
+                    }
+
+                    // Apply the shadow to the final output
+                    gl_FragColor = vec4(density * shadowMultiplier, density * shadowMultiplier, density * shadowMultiplier, 1.0);
                 }
             `
         });
@@ -268,7 +297,8 @@
             conn.on('data', data => {
                 if(data.a !== undefined && data.a !== null) {
                     const euler = new THREE.Euler(
-                        THREE.MathUtils.degToRad(data.b),
+                        // THE FIX: Subtract 90 degrees from Pitch so the top edge points down
+                        THREE.MathUtils.degToRad(data.b - 90), 
                         THREE.MathUtils.degToRad(data.a),
                         THREE.MathUtils.degToRad(-data.g),
                         'YXZ'
