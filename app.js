@@ -1,3 +1,7 @@
+// Global State for the Caliper Tool to read
+window.isUSFrozen = false;
+window.currentUSDepth = 10;
+
 // ==========================================
 // THE APP ENGINE: Game Logic & Networking
 // ==========================================
@@ -53,6 +57,23 @@ peer.on('connection', conn => {
     document.getElementById('room-display').innerText = ''; // Hide the PIN to save space
 
     conn.on('data', data => {
+        // 1. Handle Depth Slider
+        if(data.depth !== undefined) {
+            window.currentUSDepth = data.depth; // Update global state
+            if(typeof setDepth === 'function') setDepth(data.depth);
+        }
+
+        // 2. Handle Freeze Button
+        if(data.freeze !== undefined) {
+            window.isUSFrozen = data.freeze; // Update global state
+        }
+        
+        // If frozen, block the movement updates!
+        if(window.isUSFrozen === true) {
+            return; 
+        }
+
+        // 3. Handle Movement
         if(data.a !== undefined && data.a !== null) {
             const euler = new THREE.Euler(
                 THREE.MathUtils.degToRad(data.b),
@@ -64,7 +85,6 @@ peer.on('connection', conn => {
             const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
             q.multiply(tiltOffset);
             
-            // Pass the data to graphics.js
             setProbeRotation(q);
         }
     });

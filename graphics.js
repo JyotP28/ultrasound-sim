@@ -107,6 +107,13 @@ function setProbeRotation(quaternion) {
     usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
 }
 
+// Function to handle the Zoom/Depth slider
+function setDepth(cm) {
+    // Standard depth is 10cm (zoom = 1). If they slider down to 5cm, zoom = 2.
+    cameraUS.zoom = 10 / cm; 
+    cameraUS.updateProjectionMatrix();
+}
+
 // Window resizing & Animation Loop
 window.addEventListener('resize', () => {
     const newWidth = window.innerWidth / 2;

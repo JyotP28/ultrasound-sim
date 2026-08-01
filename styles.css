@@ -23,3 +23,14 @@ body { margin: 0; overflow: hidden; background: #000; color: white; font-family:
 .depth-tick { width: 10px; border-bottom: 1px solid #555; text-align: right; padding-right: 15px; }
 .screen-marker { position: absolute; top: 75px; left: 20px; width: 14px; height: 14px; background-color: #ffff00; border-radius: 50%; z-index: 10; box-shadow: 0 0 5px #000; }
 canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+/* NEW: The Caliper Tool Overlay */
+#caliper-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20; /* Sits above the WebGL canvas and UI text */
+    cursor: crosshair; /* Changes mouse to a clinical crosshair */
+}

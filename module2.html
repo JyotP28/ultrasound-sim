@@ -31,6 +31,8 @@
                 <div class="depth-tick">8cm</div><div class="depth-tick">10cm</div>
             </div>
             <div id="canvas-container-us"></div>
+            <!-- NEW: The Caliper Drawing Layer -->
+            <canvas id="caliper-layer"></canvas> 
         </div>
     </div>
 
@@ -44,9 +46,10 @@
         <button class="diag-btn bone" onclick="makeDiagnosis('Bone')">Diagnose: Calcification</button>
     </div>
 
-    <!-- 3. Load Application Logic in correct dependency order -->
+    <!-- Load Application Logic -->
     <script src="phantom.js"></script>
     <script src="graphics.js"></script>
     <script src="app.js"></script>
+    <script src="caliper.js"></script> <!-- Add this line! -->
 </body>
 </html>
