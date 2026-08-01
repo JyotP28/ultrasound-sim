@@ -18,7 +18,6 @@
         .depth-ruler { position: absolute; right: 10px; top: 15%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #aaa; font-size: 10px; }
         .depth-tick { width: 10px; border-bottom: 1px solid #555; text-align: right; padding-right: 15px; }
 
-        /* NEW: The Index Marker for the 2D Screen */
         .screen-marker {
             position: absolute;
             top: 75px;
@@ -51,7 +50,6 @@
             PHANTOM TEST
         </div>
         
-        <!-- The UI Index Marker -->
         <div class="screen-marker"></div>
 
         <div class="hud-text top-right">
@@ -80,7 +78,9 @@
     </div>
 
     <script>
-        // 1. GENERATE THE PROCEDURAL 3D PHANTOM (Same as before)
+        // ==========================================
+        // 1. GENERATE THE PROCEDURAL 3D PHANTOM 
+        // ==========================================
         const size = 64;
         const volumeData = new Uint8Array(size * size * size);
         
@@ -120,8 +120,6 @@
         // ==========================================
         const scene3D = new THREE.Scene();
         const camera3D = new THREE.PerspectiveCamera(50, window.innerWidth/2 / window.innerHeight, 0.1, 100);
-        
-        // Angled camera so the box looks 3D while sitting still
         camera3D.position.set(0, 1.5, 4.5); 
         camera3D.lookAt(0, 0, 0);
 
@@ -135,7 +133,6 @@
         );
         scene3D.add(phantomBox);
 
-        // Visible 3D spheres matching the shader math
         const fluidMesh = new THREE.Mesh(
             new THREE.SphereGeometry(0.3, 32, 32), 
             new THREE.MeshBasicMaterial({color: 0x0055ff, transparent: true, opacity: 0.6})
@@ -157,12 +154,9 @@
         muscleMesh.position.set(0.5, -0.2, 0);
         phantomBox.add(muscleMesh);
 
-        // --- NEW: THE PIVOT POINT AND HANDLE FIX ---
         const probePlane = new THREE.Group();
         
-        // 1. The Ultrasound Beam (Green Plane)
         const planeGeo = new THREE.PlaneGeometry(2, 2);
-        // SHIFT PIVOT: Move the plane down by half its height so the top edge is at (0,0,0)
         planeGeo.translate(0, -1, 0); 
         const planeMesh = new THREE.Mesh(
             planeGeo,
@@ -170,9 +164,7 @@
         );
         probePlane.add(planeMesh);
 
-        // 2. The Physical Phone / Probe Handle
-        const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); // Roughly smartphone shaped
-        // SHIFT PIVOT: Move the handle up so its bottom edge touches (0,0,0)
+        const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); 
         handleGeo.translate(0, 0.75, 0);
         const handleMesh = new THREE.Mesh(
             handleGeo,
@@ -180,20 +172,18 @@
         );
         probePlane.add(handleMesh);
         
-        // 3. The Index Marker (Yellow Dot)
         const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
         const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
         const marker3D = new THREE.Mesh(markerGeometry, markerMaterial);
-        // Attach the dot to the bottom-left corner of the phone handle
         marker3D.position.set(-0.45, 0.1, 0); 
         probePlane.add(marker3D);
 
-        // Start the probe slightly raised above the center of the phantom
         probePlane.position.set(0, 1.2, 0); 
-
         scene3D.add(probePlane);
 
+        // ==========================================
         // 3. SETUP THE RIGHT VIEWPORT (2D ULTRASOUND)
+        // ==========================================
         const sceneUS = new THREE.Scene();
         const cameraUS = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
         cameraUS.position.z = 1;
@@ -221,7 +211,6 @@
                 uniform mat4 u_matrix;
                 varying vec2 vUv;
 
-                // Random noise function for the ultrasound speckle
                 float random(vec2 st) {
                     return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
                 }
@@ -230,13 +219,11 @@
                     vec2 center = vec2(0.5, 1.0); 
                     float dist = distance(vUv, center);
                     
-                    // The fan mask
                     if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) {
                         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                         return;
                     }
 
-                    // Map 2D to 3D
                     float localX = (vUv.x * 2.0) - 1.0;
                     float localY = (vUv.y * 2.0) - 2.0; 
                     vec4 localPos = vec4(localX, localY, 0.0, 1.0);
@@ -252,13 +239,10 @@
 
                     float density = texture(u_volume, texCoord).r;
 
-                    // ==========================================
-                    // HIGH-RES ACOUSTIC SHADOWING
-                    // ==========================================
                     float shadowMultiplier = 1.0;
                     vec2 rayDir = center - vUv; 
                     
-                    const int steps = 50; // Increased from 15 to 50 for smooth shadows!
+                    const int steps = 50; 
                     vec2 stepSize = rayDir / float(steps);
                     
                     vec2 checkUv = vUv;
@@ -271,7 +255,6 @@
                         vec4 sWorld = u_matrix * sLocal;
                         vec3 sTexCoord = sWorld.xyz * 0.5 + 0.5;
                         
-                        // Only check density if the ray is still inside the phantom box
                         if (sTexCoord.x >= 0.0 && sTexCoord.x <= 1.0 && 
                             sTexCoord.y >= 0.0 && sTexCoord.y <= 1.0 && 
                             sTexCoord.z >= 0.0 && sTexCoord.z <= 1.0) {
@@ -284,10 +267,6 @@
                         }
                     }
 
-                    // ==========================================
-                    // SPECKLE NOISE INJECTION
-                    // ==========================================
-                    // Generate a noise grain and blend it with the density
                     float speckle = 0.6 + (0.4 * random(vUv)); 
                     float finalOutput = density * shadowMultiplier * speckle;
 
@@ -300,7 +279,7 @@
         sceneUS.add(usScreen);
 
         // ==========================================
-        // 4. NETWORKING & ANIMATION
+        // 4. NETWORKING & ANIMATION 
         // ==========================================
         const peer = new Peer('us-sim-room-1');
 
@@ -310,7 +289,6 @@
 
             conn.on('data', data => {
                 if(data.a !== undefined && data.a !== null) {
-                    // 1. Capture the raw, unaltered Euler angles from the phone
                     const euler = new THREE.Euler(
                         THREE.MathUtils.degToRad(data.b),
                         THREE.MathUtils.degToRad(data.a),
@@ -318,16 +296,10 @@
                         'YXZ'
                     );
                     
-                    // 2. Convert to a Quaternion (This eliminates Gimbal Lock)
                     const q = new THREE.Quaternion().setFromEuler(euler);
-                    
-                    // 3. Create a 90-degree offset Quaternion (to tilt the handle)
                     const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
-                    
-                    // 4. Multiply them together! 
                     q.multiply(tiltOffset);
                     
-                    // Apply the bulletproof rotation to the probe and the shader
                     probePlane.setRotationFromQuaternion(q);
                     probePlane.updateMatrixWorld();
                     usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
@@ -348,3 +320,6 @@
             rendererUS.render(sceneUS, cameraUS);
         }
         animate();
+    </script>
+</body>
+</html>
