@@ -1,77 +1,251 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ultrasound Monitor</title>
+    <title>Ultrasound Simulator - Physics Phantom</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #111; color: white; font-family: sans-serif; }
-        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; }
+        body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Courier New', Courier, monospace; display: flex; }
+        
+        /* Split Screen Layout */
+        #spatial-view { width: 50vw; height: 100vh; position: relative; border-right: 2px solid #333; }
+        #us-monitor { width: 50vw; height: 100vh; position: relative; background: #050505; }
+        
+        /* UI Overlays */
+        .hud-text { position: absolute; z-index: 10; font-size: 14px; text-shadow: 1px 1px 0 #000; color: #00ffcc; pointer-events: none; }
+        .top-left { top: 20px; left: 20px; }
+        .top-right { top: 20px; right: 20px; text-align: right; }
+        .bottom-right { bottom: 20px; right: 20px; color: #aaa; text-align: right; }
+        
+        /* Depth Ruler */
+        .depth-ruler { position: absolute; right: 10px; top: 15%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #aaa; font-size: 10px; }
+        .depth-tick { width: 10px; border-bottom: 1px solid #555; text-align: right; padding-right: 15px; }
+
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-    <div id="debug">
-        <h2 id="status" style="margin:0 0 10px 0; color: #ffcc00;">Initializing Peer...</h2>
-        <div id="angles">Awaiting orientation data...</div>
+
+    <!-- Left Side: 3D Spatial Awareness -->
+    <div id="spatial-view">
+        <div class="hud-text top-left" style="color: #ffaa00;">
+            <h3>SPATIAL TRACKING</h3>
+            <span id="status">Waiting for probe connection...</span>
+        </div>
+        <div id="canvas-container-3d"></div>
+    </div>
+
+    <!-- Right Side: The Ultrasound Machine Interface -->
+    <div id="us-monitor">
+        <div class="hud-text top-left">
+            SIM-HOSPITAL<br>
+            MI: 0.9  TIS: 0.2<br>
+            PHANTOM TEST
+        </div>
+        <div class="hud-text top-right">
+            Probe: Curved Array<br>
+            Freq: 3.5 MHz<br>
+            Gain: 50%
+        </div>
+        
+        <div class="depth-ruler">
+            <div class="depth-tick">0cm</div>
+            <div class="depth-tick">2cm</div>
+            <div class="depth-tick">4cm</div>
+            <div class="depth-tick">6cm</div>
+            <div class="depth-tick">8cm</div>
+            <div class="depth-tick">10cm</div>
+        </div>
+        
+        <div class="hud-text bottom-right">
+            Echogenicity Legend:<br>
+            <span style="color:#000; background:#fff; padding:2px;">Fluid: Anechoic (Black)</span><br>
+            <span style="color:#777; background:#fff; padding:2px;">Tissue: Isoechoic (Gray)</span><br>
+            <span style="color:#fff; background:#555; padding:2px;">Bone: Hyperechoic (White)</span>
+        </div>
+        
+        <div id="canvas-container-us"></div>
     </div>
 
     <script>
-        // 1. Setup Three.js Scene
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        // ==========================================
+        // 1. GENERATE THE PROCEDURAL 3D PHANTOM
+        // ==========================================
+        // We create a 64x64x64 grid of data points to act as our 3D block
+        const size = 64;
+        const volumeData = new Uint8Array(size * size * size);
+        
+        for (let z = 0; z < size; z++) {
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const index = (z * size * size) + (y * size) + x;
+                    
+                    // Normalize coordinates from -1 to 1
+                    const nx = (x / size) * 2 - 1;
+                    const ny = (y / size) * 2 - 1;
+                    const nz = (z / size) * 2 - 1;
+                    
+                    // Default Background: Soft Tissue (Mid-Gray with speckle noise)
+                    let density = 100 + Math.random() * 30; 
+                    
+                    // Shape 1: Fluid Cyst (Anechoic / Black)
+                    if (Math.sqrt(nx*nx + (ny-0.3)*(ny-0.3) + nz*nz) < 0.3) {
+                        density = 5; // Almost black
+                    }
+                    
+                    // Shape 2: Bone / Stone (Hyperechoic / White)
+                    if (Math.sqrt((nx+0.4)*(nx+0.4) + (ny+0.3)*(ny+0.3) + nz*nz) < 0.2) {
+                        density = 250; // Bright white
+                    }
+                    
+                    // Shape 3: Dense Muscle Mass (Slightly brighter gray)
+                    if (Math.sqrt((nx-0.5)*(nx-0.5) + (ny+0.2)*(ny+0.2) + nz*nz) < 0.25) {
+                        density = 160; 
+                    }
+                    
+                    volumeData[index] = density;
+                }
+            }
+        }
 
-        const organ = new THREE.Mesh(
-            new THREE.SphereGeometry(2, 16, 16),
-            new THREE.MeshBasicMaterial({ color: 0xaa4444, wireframe: true })
+        const texture3D = new THREE.DataTexture3D(volumeData, size, size, size);
+        texture3D.format = THREE.RedFormat;
+        texture3D.type = THREE.UnsignedByteType;
+        texture3D.minFilter = texture3D.magFilter = THREE.LinearFilter;
+        texture3D.unpackAlignment = 1;
+        texture3D.needsUpdate = true;
+
+        // ==========================================
+        // 2. SETUP THE LEFT VIEWPORT (3D SPATIAL)
+        // ==========================================
+        const scene3D = new THREE.Scene();
+        const camera3D = new THREE.PerspectiveCamera(50, window.innerWidth/2 / window.innerHeight, 0.1, 100);
+        camera3D.position.set(0, 0, 4);
+
+        const renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer3D.setSize(window.innerWidth / 2, window.innerHeight);
+        document.getElementById('canvas-container-3d').appendChild(renderer3D.domElement);
+
+        // A wireframe box to represent the gelatin phantom block
+        const phantomBox = new THREE.Mesh(
+            new THREE.BoxGeometry(2, 2, 2),
+            new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true })
         );
-        scene.add(organ);
+        scene3D.add(phantomBox);
 
-        const slicePlane = new THREE.Mesh(
-            new THREE.PlaneGeometry(4, 4),
-            new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        // The virtual probe plane that moves with the phone
+        const probePlane = new THREE.Group(); // Group to hold rotation
+        const planeMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2),
+            new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.3 })
         );
-        scene.add(slicePlane);
-        camera.position.z = 6;
+        probePlane.add(planeMesh);
+        scene3D.add(probePlane);
 
-        // 2. PeerJS Connection
+        // ==========================================
+        // 3. SETUP THE RIGHT VIEWPORT (2D ULTRASOUND)
+        // ==========================================
+        const sceneUS = new THREE.Scene();
+        // Orthographic camera makes the 2D view perfectly flat
+        const cameraUS = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+        cameraUS.position.z = 1;
+
+        const rendererUS = new THREE.WebGLRenderer({ antialias: true });
+        rendererUS.setSize(window.innerWidth / 2, window.innerHeight);
+        document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
+
+        // The Custom Shader that generates the ultrasound image
+        const usMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                u_volume: { value: texture3D },
+                u_matrix: { value: new THREE.Matrix4() }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                precision highp float;
+                precision highp sampler3D;
+                uniform sampler3D u_volume;
+                uniform mat4 u_matrix;
+                varying vec2 vUv;
+
+                void main() {
+                    // Create a sector scan shape (pie slice)
+                    vec2 center = vec2(0.5, 1.0);
+                    float dist = distance(vUv, center);
+                    
+                    // Fan boundaries
+                    if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) {
+                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                        return;
+                    }
+
+                    // Map 2D screen coordinates to 3D space using the phone's rotation matrix
+                    vec4 localPos = vec4(vUv.x - 0.5, vUv.y - 0.5, 0.0, 1.0);
+                    vec4 worldPos = u_matrix * localPos;
+                    
+                    // Map world position to 3D texture coordinates (0.0 to 1.0)
+                    vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
+
+                    // Sample the density from our generated phantom
+                    float density = texture(u_volume, texCoord).r;
+
+                    // Output grayscale pixel
+                    gl_FragColor = vec4(density, density, density, 1.0);
+                }
+            `
+        });
+
+        const usScreen = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial);
+        sceneUS.add(usScreen);
+
+        // ==========================================
+        // 4. PEERJS NETWORKING & ANIMATION
+        // ==========================================
         const peer = new Peer('us-sim-room-1');
-
-        peer.on('open', (id) => {
-            document.getElementById('status').innerText = 'Ready! Waiting for probe...';
-            document.getElementById('status').style.color = '#00ffcc';
-        });
-
-        peer.on('error', (err) => {
-            document.getElementById('status').innerText = 'Error: ' + err.type;
-            document.getElementById('status').style.color = '#ff4444';
-        });
 
         peer.on('connection', conn => {
             document.getElementById('status').innerText = 'Probe Connected!';
-            document.getElementById('status').style.color = '#44ff44';
+            document.getElementById('status').style.color = '#00ffcc';
 
             conn.on('data', data => {
                 if(data.a !== undefined && data.a !== null) {
-                    document.getElementById('angles').innerText = 
-                        `Alpha: ${Math.round(data.a)}° | Beta: ${Math.round(data.b)}° | Gamma: ${Math.round(data.g)}°`;
-
+                    // Update the 3D plane rotation
                     const euler = new THREE.Euler(
                         THREE.MathUtils.degToRad(data.b),
                         THREE.MathUtils.degToRad(data.a),
                         THREE.MathUtils.degToRad(-data.g),
                         'YXZ'
                     );
-                    slicePlane.setRotationFromEuler(euler);
+                    probePlane.setRotationFromEuler(euler);
+
+                    // Pass the exact same rotation to the 2D Ultrasound Shader
+                    probePlane.updateMatrixWorld();
+                    usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
                 }
             });
         });
 
+        // Handle window resizing for split screen
+        window.addEventListener('resize', () => {
+            renderer3D.setSize(window.innerWidth / 2, window.innerHeight);
+            camera3D.aspect = (window.innerWidth / 2) / window.innerHeight;
+            camera3D.updateProjectionMatrix();
+            rendererUS.setSize(window.innerWidth / 2, window.innerHeight);
+        });
+
         function animate() {
             requestAnimationFrame(animate);
-            renderer.render(scene, camera);
+            // Slowly rotate the phantom box so students can see it in 3D space
+            phantomBox.rotation.y += 0.002;
+            
+            renderer3D.render(scene3D, camera3D);
+            rendererUS.render(sceneUS, cameraUS);
         }
         animate();
     </script>
