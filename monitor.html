@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ultrasound Monitor</title>
+    <!-- Import PeerJS and Three.js for free via CDN -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>body { margin: 0; overflow: hidden; background: #111; color: white; font-family: sans-serif; }</style>
+</head>
+<body>
+    <h2 id="status" style="position: absolute; padding: 20px;">Waiting for probe...</h2>
+    <script>
+        // 1. Setup the 3D Environment
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // A wireframe sphere to represent the 3D organ volume
+        const organ = new THREE.Mesh(
+            new THREE.SphereGeometry(2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xaa4444, wireframe: true })
+        );
+        scene.add(organ);
+
+        // A translucent plane representing the 2D ultrasound slice
+        const slicePlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(4, 4),
+            new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+        );
+        scene.add(slicePlane);
+        camera.position.z = 6;
+
+        // 2. Setup the WebRTC Network Bridge
+        const peer = new Peer('monitor-demo-123'); // Set a fixed ID for the phone to find
+        
+        peer.on('connection', conn => {
+            document.getElementById('status').innerText = 'Probe Connected!';
+            conn.on('data', data => {
+                // 3. Map phone sensors to 3D rotation
+                if(data.a !== null) {
+                    const euler = new THREE.Euler(
+                        THREE.MathUtils.degToRad(data.b),   // Pitch
+                        THREE.MathUtils.degToRad(data.a),   // Yaw
+                        THREE.MathUtils.degToRad(-data.g),  // Roll
+                        'YXZ'
+                    );
+                    slicePlane.setRotationFromEuler(euler);
+                }
+            });
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

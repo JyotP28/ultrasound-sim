@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Probe Controller</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; }
+        button { padding: 25px 50px; font-size: 24px; border-radius: 12px; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <button id="startBtn">Start Scanning</button>
+
+    <script>
+        const peer = new Peer(); // Auto-generate random ID for the phone
+
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            // iOS 13+ requires explicit permission to read device orientation
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                const permission = await DeviceOrientationEvent.requestPermission();
+                if (permission !== 'granted') return alert('Sensor access denied');
+            }
+
+            // Connect to the laptop's specific ID
+            const conn = peer.connect('monitor-demo-123');
+            conn.on('open', () => {
+                document.getElementById('startBtn').innerText = 'Transmitting Live...';
+                document.getElementById('startBtn').style.background = '#44ff44';
+            });
+
+            // Stream raw Euler angles to the laptop as fast as they come in
+            window.addEventListener('deviceorientation', (event) => {
+                if (conn && conn.open) {
+                    conn.send({ a: event.alpha, b: event.beta, g: event.gamma });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
