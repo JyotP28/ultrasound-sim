@@ -6,12 +6,15 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #222; color: white; font-family: sans-serif; }
-        button { padding: 25px 40px; font-size: 22px; border-radius: 12px; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
-        #log { font-family: monospace; font-size: 14px; text-align: center; color: #aaa; }
+        input { padding: 15px; font-size: 24px; text-align: center; margin-bottom: 20px; border-radius: 8px; border: 2px solid #555; background: #111; color: #fff; width: 180px; }
+        button { padding: 20px 40px; font-size: 22px; border-radius: 12px; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; margin-bottom: 20px; width: 230px;}
+        #log { font-family: monospace; font-size: 14px; text-align: center; color: #aaa; padding: 0 20px;}
     </style>
 </head>
 <body>
-    <button id="startBtn">Connect & Start Probe</button>
+    <h3 style="margin-bottom: 10px;">Enter Room PIN</h3>
+    <input type="number" id="pinInput" placeholder="1234" />
+    <button id="startBtn">Connect Probe</button>
     <div id="log">Status: Idle</div>
 
     <script>
@@ -21,11 +24,17 @@
         function sendOrientation(event) {
             if (conn && conn.open) {
                 conn.send({ a: event.alpha, b: event.beta, g: event.gamma });
-                log.innerText = `Sending: A:${Math.round(event.alpha)} B:${Math.round(event.beta)} G:${Math.round(event.gamma)}`;
             }
         }
 
         document.getElementById('startBtn').addEventListener('click', async () => {
+            const pin = document.getElementById('pinInput').value;
+            
+            if(pin.length !== 4) {
+                log.innerText = 'Please enter a 4-digit PIN.';
+                return;
+            }
+
             log.innerText = 'Requesting permissions...';
 
             try {
@@ -37,14 +46,14 @@
                     }
                 }
 
-                // Attach event listener immediately after permission granted
                 window.addEventListener('deviceorientation', sendOrientation, true);
 
-                log.innerText = 'Connecting to monitor...';
+                log.innerText = 'Connecting to Room ' + pin + '...';
                 const peer = new Peer();
 
                 peer.on('open', () => {
-                    conn = peer.connect('us-sim-room-2');
+                    // Connect using the exact same prefix as the laptop
+                    conn = peer.connect('sim-hosp-' + pin);
                     
                     conn.on('open', () => {
                         document.getElementById('startBtn').innerText = 'Transmitting Live!';
@@ -55,6 +64,10 @@
                     conn.on('error', (err) => {
                         log.innerText = 'Conn Error: ' + err;
                     });
+                });
+
+                peer.on('error', (err) => {
+                    log.innerText = 'PeerJS Error: ' + err.type;
                 });
 
             } catch (e) {

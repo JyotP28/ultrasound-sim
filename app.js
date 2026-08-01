@@ -26,37 +26,24 @@ function makeDiagnosis(guess) {
 }
 
 // Network Connection
-const peer = new Peer('us-sim-room-1');
+// ==========================================
+// DYNAMIC NETWORK CONNECTION (JACKBOX STYLE)
+// ==========================================
+// Generate a random 4-digit PIN (e.g., 4921)
+const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-peer.on('connection', conn => {
-    document.getElementById('status').innerText = 'Probe Connected!';
-    document.getElementById('status').style.color = '#00ffcc';
+// We add a prefix so our app doesn't collide with other PeerJS users globally
+const roomId = 'sim-hosp-' + roomPIN;
 
-    conn.on('data', data => {
-        if(data.a !== undefined && data.a !== null) {
-            const euler = new THREE.Euler(
-                THREE.MathUtils.degToRad(data.b),
-                THREE.MathUtils.degToRad(data.a),
-                THREE.MathUtils.degToRad(-data.g),
-                'YXZ'
-            );
-            const q = new THREE.Quaternion().setFromEuler(euler);
-            const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
-            q.multiply(tiltOffset);
-            
-            // Pass the data to the graphics engine
-            setProbeRotation(q);
-        }
-    });
+const peer = new Peer(roomId);
+
+peer.on('open', (id) => {
+    document.getElementById('status').innerText = 'Awaiting probe connection...';
+    document.getElementById('status').style.color = '#ffcc00';
+    document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
 });
 
-// ==========================================
-// Network Connection
-// ==========================================
-const peer = new Peer('us-sim-room-2'); // <-- Changed to room 2!
-
 peer.on('error', (err) => {
-    // If the ID is taken or network fails, show it on the screen!
     document.getElementById('status').innerText = 'Network Error: ' + err.type;
     document.getElementById('status').style.color = '#ff4444';
 });
@@ -64,6 +51,7 @@ peer.on('error', (err) => {
 peer.on('connection', conn => {
     document.getElementById('status').innerText = 'Probe Connected!';
     document.getElementById('status').style.color = '#00ffcc';
+    document.getElementById('room-display').innerText = ''; // Hide the PIN
 
     conn.on('data', data => {
         if(data.a !== undefined && data.a !== null) {
@@ -77,7 +65,7 @@ peer.on('connection', conn => {
             const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
             q.multiply(tiltOffset);
             
-            // Pass the data to the graphics engine
+            // Pass the bulletproof math to the graphics engine!
             setProbeRotation(q);
         }
     });
