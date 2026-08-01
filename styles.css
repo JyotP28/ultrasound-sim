@@ -1,0 +1,25 @@
+body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column;}
+
+#viewports { display: flex; width: 100vw; height: 85vh; }
+#spatial-view { width: 50vw; height: 100%; position: relative; border-right: 2px solid #333; }
+#us-monitor { width: 50vw; height: 100%; position: relative; background: #050505; }
+
+#control-panel { height: 15vh; background: #111; border-top: 2px solid #333; display: flex; align-items: center; justify-content: space-around; padding: 0 20px; }
+.diag-btn { background: #222; color: #fff; border: 2px solid #555; padding: 15px 30px; font-size: 16px; font-family: 'Courier New', Courier, monospace; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.2s; }
+.diag-btn:hover { background: #444; border-color: #00ffcc; }
+.diag-btn.cyst { border-bottom: 4px solid #000; }
+.diag-btn.mass { border-bottom: 4px solid #777; }
+.diag-btn.bone { border-bottom: 4px solid #fff; }
+
+.hud-text { position: absolute; z-index: 10; font-size: 14px; text-shadow: 1px 1px 0 #000; color: #00ffcc; pointer-events: none; }
+.top-left { top: 20px; left: 20px; }
+.top-right { top: 20px; right: 20px; text-align: right; }
+.bottom-right { bottom: 20px; right: 20px; color: #aaa; text-align: right; }
+
+#score-board { font-size: 24px; color: #ffaa00; text-align: center; }
+#feedback { font-size: 18px; color: #aaa; margin-top: 5px; }
+
+.depth-ruler { position: absolute; right: 10px; top: 15%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #aaa; font-size: 10px; }
+.depth-tick { width: 10px; border-bottom: 1px solid #555; text-align: right; padding-right: 15px; }
+.screen-marker { position: absolute; top: 75px; left: 20px; width: 14px; height: 14px; background-color: #ffff00; border-radius: 50%; z-index: 10; box-shadow: 0 0 5px #000; }
+canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }

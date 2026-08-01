@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ultrasound Simulator - Assessment Module</title>
+    <!-- 1. Load CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- 2. Load External Libraries -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="viewports">
+        <div id="spatial-view">
+            <div class="hud-text top-left" style="color: #ffaa00;">
+                <h3>MODULE 2: BLIND PHANTOM</h3>
+                <span id="status">Waiting for probe connection...</span>
+            </div>
+            <div id="canvas-container-3d"></div>
+        </div>
+
+        <div id="us-monitor">
+            <div class="hud-text top-left">SIM-HOSPITAL<br>MI: 0.9 TIS: 0.2</div>
+            <div class="screen-marker"></div>
+            <div class="hud-text top-right">Probe: Curved Array<br>Freq: 3.5 MHz</div>
+            <div class="depth-ruler">
+                <div class="depth-tick">0cm</div><div class="depth-tick">2cm</div>
+                <div class="depth-tick">4cm</div><div class="depth-tick">6cm</div>
+                <div class="depth-tick">8cm</div><div class="depth-tick">10cm</div>
+            </div>
+            <div id="canvas-container-us"></div>
+        </div>
+    </div>
+
+    <div id="control-panel">
+        <div id="score-board">
+            Score: <span id="score-val" style="color:#fff;">0</span>
+            <div id="feedback">Scan the block to find the hidden anomaly.</div>
+        </div>
+        <button class="diag-btn cyst" onclick="makeDiagnosis('Cyst')">Diagnose: Anechoic Cyst</button>
+        <button class="diag-btn mass" onclick="makeDiagnosis('Mass')">Diagnose: Isoechoic Mass</button>
+        <button class="diag-btn bone" onclick="makeDiagnosis('Bone')">Diagnose: Calcification</button>
+    </div>
+
+    <!-- 3. Load Application Logic in correct dependency order -->
+    <script src="phantom.js"></script>
+    <script src="graphics.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

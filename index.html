@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultrasound Training Hub</title>
+    <style>
+        body { 
+            margin: 0; background: #050505; color: #fff; 
+            font-family: 'Courier New', Courier, monospace; 
+            display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; height: 100vh; 
+        }
+        h1 { color: #00ffcc; text-shadow: 0 0 10px rgba(0, 255, 204, 0.4); font-size: 2.5rem; margin-bottom: 5px; }
+        .subtitle { color: #aaa; margin-bottom: 50px; }
+        
+        .menu-container { display: flex; gap: 30px; }
+        
+        .card { 
+            background: #111; border: 2px solid #333; border-radius: 12px; 
+            padding: 30px; width: 220px; text-align: center; transition: 0.3s; 
+            cursor: pointer; text-decoration: none; color: white; 
+            display: flex; flex-direction: column; 
+        }
+        .card:hover { 
+            border-color: #00ffcc; transform: translateY(-5px); 
+            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.2); 
+        }
+        
+        .card h2 { color: #ffaa00; font-size: 1.5rem; margin-top: 0; }
+        .card p { color: #888; font-size: 0.9rem; flex-grow: 1; line-height: 1.4; }
+        
+        /* Locked states for modules we haven't built into the new architecture yet */
+        .locked { opacity: 0.4; cursor: not-allowed; }
+        .locked:hover { border-color: #333; transform: none; box-shadow: none; }
+        
+        .status-box { 
+            margin-top: 50px; padding: 15px 30px; border: 1px dashed #555; 
+            border-radius: 8px; color: #777; text-align: center; 
+        }
+    </style>
+</head>
+<body>
+
+    <h1>SimHospital Ultrasound OS</h1>
+    <div class="subtitle">Select a curriculum module to begin.</div>
+
+    <div class="menu-container">
+        
+        <!-- Module 1: Currently locked while we rebuild it -->
+        <a href="#" class="card locked">
+            <h2>Module 1</h2>
+            <p>Spatial Sandbox<br><br>Learn basic probe orientation and echogenicity.</p>
+            <span style="color: #555;">(Refactoring...)</span>
+        </a>
+
+        <!-- Module 2: The Assessment we just built! -->
+        <a href="module2.html" class="card">
+            <h2>Module 2</h2>
+            <p>Blind Phantom<br><br>Test your diagnostic skills by finding hidden pathologies.</p>
+            <span style="color: #00ffcc; font-weight: bold;">▶ Start Module</span>
+        </a>
+
+        <!-- Module 3: The Final Boss -->
+        <a href="#" class="card locked">
+            <h2>Module 3</h2>
+            <p>Clinical Anatomy<br><br>Scan real 3D human CT/MRI datasets.</p>
+            <span style="color: #555;">(Locked)</span>
+        </a>
+
+    </div>
+
+    <div class="status-box">
+        <strong>Instructor Note:</strong> Ensure the student has opened <code>probe.html</code> on their smartphone.
+    </div>
+
+</body>
+</html>
