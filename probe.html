@@ -5,36 +5,61 @@
     <title>Probe Controller</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #222; }
-        button { padding: 25px 50px; font-size: 24px; border-radius: 12px; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; }
+        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #222; color: white; font-family: sans-serif; }
+        button { padding: 25px 40px; font-size: 22px; border-radius: 12px; background: #00ffcc; border: none; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        #log { font-family: monospace; font-size: 14px; text-align: center; color: #aaa; }
     </style>
 </head>
 <body>
-    <button id="startBtn">Start Scanning</button>
+    <button id="startBtn">Connect & Start Probe</button>
+    <div id="log">Status: Idle</div>
 
     <script>
-        const peer = new Peer(); // Auto-generate random ID for the phone
+        let conn = null;
+        const log = document.getElementById('log');
+
+        function sendOrientation(event) {
+            if (conn && conn.open) {
+                conn.send({ a: event.alpha, b: event.beta, g: event.gamma });
+                log.innerText = `Sending: A:${Math.round(event.alpha)} B:${Math.round(event.beta)} G:${Math.round(event.gamma)}`;
+            }
+        }
 
         document.getElementById('startBtn').addEventListener('click', async () => {
-            // iOS 13+ requires explicit permission to read device orientation
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                const permission = await DeviceOrientationEvent.requestPermission();
-                if (permission !== 'granted') return alert('Sensor access denied');
-            }
+            log.innerText = 'Requesting permissions...';
 
-            // Connect to the laptop's specific ID
-            const conn = peer.connect('monitor-demo-123');
-            conn.on('open', () => {
-                document.getElementById('startBtn').innerText = 'Transmitting Live...';
-                document.getElementById('startBtn').style.background = '#44ff44';
-            });
-
-            // Stream raw Euler angles to the laptop as fast as they come in
-            window.addEventListener('deviceorientation', (event) => {
-                if (conn && conn.open) {
-                    conn.send({ a: event.alpha, b: event.beta, g: event.gamma });
+            try {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        log.innerText = 'Permission denied by user.';
+                        return;
+                    }
                 }
-            });
+
+                // Attach event listener immediately after permission granted
+                window.addEventListener('deviceorientation', sendOrientation, true);
+
+                log.innerText = 'Connecting to monitor...';
+                const peer = new Peer();
+
+                peer.on('open', () => {
+                    conn = peer.connect('us-sim-room-1');
+                    
+                    conn.on('open', () => {
+                        document.getElementById('startBtn').innerText = 'Transmitting Live!';
+                        document.getElementById('startBtn').style.background = '#44ff44';
+                        log.innerText = 'Connected! Move phone now.';
+                    });
+
+                    conn.on('error', (err) => {
+                        log.innerText = 'Conn Error: ' + err;
+                    });
+                });
+
+            } catch (e) {
+                log.innerText = 'Error: ' + e.message;
+            }
         });
     </script>
 </body>

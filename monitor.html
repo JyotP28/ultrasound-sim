@@ -2,48 +2,66 @@
 <html>
 <head>
     <title>Ultrasound Monitor</title>
-    <!-- Import PeerJS and Three.js for free via CDN -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>body { margin: 0; overflow: hidden; background: #111; color: white; font-family: sans-serif; }</style>
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; color: white; font-family: sans-serif; }
+        #debug { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; }
+    </style>
 </head>
 <body>
-    <h2 id="status" style="position: absolute; padding: 20px;">Waiting for probe...</h2>
+    <div id="debug">
+        <h2 id="status" style="margin:0 0 10px 0; color: #ffcc00;">Initializing Peer...</h2>
+        <div id="angles">Awaiting orientation data...</div>
+    </div>
+
     <script>
-        // 1. Setup the 3D Environment
+        // 1. Setup Three.js Scene
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // A wireframe sphere to represent the 3D organ volume
         const organ = new THREE.Mesh(
             new THREE.SphereGeometry(2, 16, 16),
             new THREE.MeshBasicMaterial({ color: 0xaa4444, wireframe: true })
         );
         scene.add(organ);
 
-        // A translucent plane representing the 2D ultrasound slice
         const slicePlane = new THREE.Mesh(
             new THREE.PlaneGeometry(4, 4),
-            new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+            new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
         );
         scene.add(slicePlane);
         camera.position.z = 6;
 
-        // 2. Setup the WebRTC Network Bridge
-        const peer = new Peer('monitor-demo-123'); // Set a fixed ID for the phone to find
-        
+        // 2. PeerJS Connection
+        const peer = new Peer('us-sim-room-1');
+
+        peer.on('open', (id) => {
+            document.getElementById('status').innerText = 'Ready! Waiting for probe...';
+            document.getElementById('status').style.color = '#00ffcc';
+        });
+
+        peer.on('error', (err) => {
+            document.getElementById('status').innerText = 'Error: ' + err.type;
+            document.getElementById('status').style.color = '#ff4444';
+        });
+
         peer.on('connection', conn => {
             document.getElementById('status').innerText = 'Probe Connected!';
+            document.getElementById('status').style.color = '#44ff44';
+
             conn.on('data', data => {
-                // 3. Map phone sensors to 3D rotation
-                if(data.a !== null) {
+                if(data.a !== undefined && data.a !== null) {
+                    document.getElementById('angles').innerText = 
+                        `Alpha: ${Math.round(data.a)}° | Beta: ${Math.round(data.b)}° | Gamma: ${Math.round(data.g)}°`;
+
                     const euler = new THREE.Euler(
-                        THREE.MathUtils.degToRad(data.b),   // Pitch
-                        THREE.MathUtils.degToRad(data.a),   // Yaw
-                        THREE.MathUtils.degToRad(-data.g),  // Roll
+                        THREE.MathUtils.degToRad(data.b),
+                        THREE.MathUtils.degToRad(data.a),
+                        THREE.MathUtils.degToRad(-data.g),
                         'YXZ'
                     );
                     slicePlane.setRotationFromEuler(euler);
