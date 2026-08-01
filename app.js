@@ -1,4 +1,6 @@
-// The App Engine: Handles Game Logic and Networking
+// ==========================================
+// THE APP ENGINE: Game Logic & Networking
+// ==========================================
 let score = 0;
 
 // Initialize the first level
@@ -25,14 +27,11 @@ function makeDiagnosis(guess) {
     }
 }
 
-// Network Connection
 // ==========================================
 // DYNAMIC NETWORK CONNECTION (JACKBOX STYLE)
 // ==========================================
-// Generate a random 4-digit PIN (e.g., 4921)
+// Generate a random 4-digit PIN
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
-
-// We add a prefix so our app doesn't collide with other PeerJS users globally
 const roomId = 'sim-hosp-' + roomPIN;
 
 const peer = new Peer(roomId);
@@ -51,7 +50,7 @@ peer.on('error', (err) => {
 peer.on('connection', conn => {
     document.getElementById('status').innerText = 'Probe Connected!';
     document.getElementById('status').style.color = '#00ffcc';
-    document.getElementById('room-display').innerText = ''; // Hide the PIN
+    document.getElementById('room-display').innerText = ''; // Hide the PIN to save space
 
     conn.on('data', data => {
         if(data.a !== undefined && data.a !== null) {
@@ -65,7 +64,7 @@ peer.on('connection', conn => {
             const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
             q.multiply(tiltOffset);
             
-            // Pass the bulletproof math to the graphics engine!
+            // Pass the data to graphics.js
             setProbeRotation(q);
         }
     });
