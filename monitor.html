@@ -7,26 +7,35 @@
     <style>
         body { margin: 0; overflow: hidden; background: #000; color: white; font-family: 'Courier New', Courier, monospace; display: flex; }
         
-        /* Split Screen Layout */
         #spatial-view { width: 50vw; height: 100vh; position: relative; border-right: 2px solid #333; }
         #us-monitor { width: 50vw; height: 100vh; position: relative; background: #050505; }
         
-        /* UI Overlays */
         .hud-text { position: absolute; z-index: 10; font-size: 14px; text-shadow: 1px 1px 0 #000; color: #00ffcc; pointer-events: none; }
         .top-left { top: 20px; left: 20px; }
         .top-right { top: 20px; right: 20px; text-align: right; }
         .bottom-right { bottom: 20px; right: 20px; color: #aaa; text-align: right; }
         
-        /* Depth Ruler */
         .depth-ruler { position: absolute; right: 10px; top: 15%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #aaa; font-size: 10px; }
         .depth-tick { width: 10px; border-bottom: 1px solid #555; text-align: right; padding-right: 15px; }
+
+        /* NEW: The Index Marker for the 2D Screen */
+        .screen-marker {
+            position: absolute;
+            top: 75px;
+            left: 20px;
+            width: 14px;
+            height: 14px;
+            background-color: #ffff00;
+            border-radius: 50%;
+            z-index: 10;
+            box-shadow: 0 0 5px #000;
+        }
 
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
-    <!-- Left Side: 3D Spatial Awareness -->
     <div id="spatial-view">
         <div class="hud-text top-left" style="color: #ffaa00;">
             <h3>SPATIAL TRACKING</h3>
@@ -35,13 +44,16 @@
         <div id="canvas-container-3d"></div>
     </div>
 
-    <!-- Right Side: The Ultrasound Machine Interface -->
     <div id="us-monitor">
         <div class="hud-text top-left">
             SIM-HOSPITAL<br>
             MI: 0.9  TIS: 0.2<br>
             PHANTOM TEST
         </div>
+        
+        <!-- The UI Index Marker -->
+        <div class="screen-marker"></div>
+
         <div class="hud-text top-right">
             Probe: Curved Array<br>
             Freq: 3.5 MHz<br>
@@ -68,10 +80,7 @@
     </div>
 
     <script>
-        // ==========================================
-        // 1. GENERATE THE PROCEDURAL 3D PHANTOM
-        // ==========================================
-        // We create a 64x64x64 grid of data points to act as our 3D block
+        // 1. GENERATE THE PROCEDURAL 3D PHANTOM (Same as before)
         const size = 64;
         const volumeData = new Uint8Array(size * size * size);
         
@@ -79,30 +88,21 @@
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const index = (z * size * size) + (y * size) + x;
-                    
-                    // Normalize coordinates from -1 to 1
                     const nx = (x / size) * 2 - 1;
                     const ny = (y / size) * 2 - 1;
                     const nz = (z / size) * 2 - 1;
                     
-                    // Default Background: Soft Tissue (Mid-Gray with speckle noise)
-                    let density = 100 + Math.random() * 30; 
+                    let density = 100 + Math.random() * 30; // Tissue
                     
-                    // Shape 1: Fluid Cyst (Anechoic / Black)
                     if (Math.sqrt(nx*nx + (ny-0.3)*(ny-0.3) + nz*nz) < 0.3) {
-                        density = 5; // Almost black
+                        density = 5; // Fluid
                     }
-                    
-                    // Shape 2: Bone / Stone (Hyperechoic / White)
                     if (Math.sqrt((nx+0.4)*(nx+0.4) + (ny+0.3)*(ny+0.3) + nz*nz) < 0.2) {
-                        density = 250; // Bright white
+                        density = 250; // Bone
                     }
-                    
-                    // Shape 3: Dense Muscle Mass (Slightly brighter gray)
                     if (Math.sqrt((nx-0.5)*(nx-0.5) + (ny+0.2)*(ny+0.2) + nz*nz) < 0.25) {
-                        density = 160; 
+                        density = 160; // Muscle
                     }
-                    
                     volumeData[index] = density;
                 }
             }
@@ -120,33 +120,81 @@
         // ==========================================
         const scene3D = new THREE.Scene();
         const camera3D = new THREE.PerspectiveCamera(50, window.innerWidth/2 / window.innerHeight, 0.1, 100);
-        camera3D.position.set(0, 0, 4);
+        
+        // Angled camera so the box looks 3D while sitting still
+        camera3D.position.set(0, 1.5, 4.5); 
+        camera3D.lookAt(0, 0, 0);
 
         const renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer3D.setSize(window.innerWidth / 2, window.innerHeight);
         document.getElementById('canvas-container-3d').appendChild(renderer3D.domElement);
 
-        // A wireframe box to represent the gelatin phantom block
         const phantomBox = new THREE.Mesh(
             new THREE.BoxGeometry(2, 2, 2),
             new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true })
         );
         scene3D.add(phantomBox);
 
-        // The virtual probe plane that moves with the phone
-        const probePlane = new THREE.Group(); // Group to hold rotation
+        // Visible 3D spheres matching the shader math
+        const fluidMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3, 32, 32), 
+            new THREE.MeshBasicMaterial({color: 0x0055ff, transparent: true, opacity: 0.6})
+        );
+        fluidMesh.position.set(0, 0.3, 0);
+        phantomBox.add(fluidMesh);
+
+        const boneMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 32, 32), 
+            new THREE.MeshBasicMaterial({color: 0xffffff})
+        );
+        boneMesh.position.set(-0.4, -0.3, 0);
+        phantomBox.add(boneMesh);
+
+        const muscleMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.25, 32, 32), 
+            new THREE.MeshBasicMaterial({color: 0xaa5555, transparent: true, opacity: 0.8})
+        );
+        muscleMesh.position.set(0.5, -0.2, 0);
+        phantomBox.add(muscleMesh);
+
+        // --- NEW: THE PIVOT POINT AND HANDLE FIX ---
+        const probePlane = new THREE.Group();
+        
+        // 1. The Ultrasound Beam (Green Plane)
+        const planeGeo = new THREE.PlaneGeometry(2, 2);
+        // SHIFT PIVOT: Move the plane down by half its height so the top edge is at (0,0,0)
+        planeGeo.translate(0, -1, 0); 
         const planeMesh = new THREE.Mesh(
-            new THREE.PlaneGeometry(2, 2),
+            planeGeo,
             new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.3 })
         );
         probePlane.add(planeMesh);
+
+        // 2. The Physical Phone / Probe Handle
+        const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); // Roughly smartphone shaped
+        // SHIFT PIVOT: Move the handle up so its bottom edge touches (0,0,0)
+        handleGeo.translate(0, 0.75, 0);
+        const handleMesh = new THREE.Mesh(
+            handleGeo,
+            new THREE.MeshBasicMaterial({ color: 0x888888 })
+        );
+        probePlane.add(handleMesh);
+        
+        // 3. The Index Marker (Yellow Dot)
+        const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+        const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const marker3D = new THREE.Mesh(markerGeometry, markerMaterial);
+        // Attach the dot to the bottom-left corner of the phone handle
+        marker3D.position.set(-0.45, 0.1, 0); 
+        probePlane.add(marker3D);
+
+        // Start the probe slightly raised above the center of the phantom
+        probePlane.position.set(0, 1.2, 0); 
+
         scene3D.add(probePlane);
 
-        // ==========================================
         // 3. SETUP THE RIGHT VIEWPORT (2D ULTRASOUND)
-        // ==========================================
         const sceneUS = new THREE.Scene();
-        // Orthographic camera makes the 2D view perfectly flat
         const cameraUS = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
         cameraUS.position.z = 1;
 
@@ -154,7 +202,6 @@
         rendererUS.setSize(window.innerWidth / 2, window.innerHeight);
         document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
 
-        // The Custom Shader that generates the ultrasound image
         const usMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 u_volume: { value: texture3D },
@@ -175,27 +222,19 @@
                 varying vec2 vUv;
 
                 void main() {
-                    // Create a sector scan shape (pie slice)
                     vec2 center = vec2(0.5, 1.0);
                     float dist = distance(vUv, center);
                     
-                    // Fan boundaries
                     if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) {
                         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                         return;
                     }
 
-                    // Map 2D screen coordinates to 3D space using the phone's rotation matrix
                     vec4 localPos = vec4(vUv.x - 0.5, vUv.y - 0.5, 0.0, 1.0);
                     vec4 worldPos = u_matrix * localPos;
-                    
-                    // Map world position to 3D texture coordinates (0.0 to 1.0)
                     vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
 
-                    // Sample the density from our generated phantom
                     float density = texture(u_volume, texCoord).r;
-
-                    // Output grayscale pixel
                     gl_FragColor = vec4(density, density, density, 1.0);
                 }
             `
@@ -204,9 +243,7 @@
         const usScreen = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial);
         sceneUS.add(usScreen);
 
-        // ==========================================
-        // 4. PEERJS NETWORKING & ANIMATION
-        // ==========================================
+        // 4. NETWORKING & ANIMATION
         const peer = new Peer('us-sim-room-1');
 
         peer.on('connection', conn => {
@@ -215,7 +252,6 @@
 
             conn.on('data', data => {
                 if(data.a !== undefined && data.a !== null) {
-                    // Update the 3D plane rotation
                     const euler = new THREE.Euler(
                         THREE.MathUtils.degToRad(data.b),
                         THREE.MathUtils.degToRad(data.a),
@@ -223,15 +259,12 @@
                         'YXZ'
                     );
                     probePlane.setRotationFromEuler(euler);
-
-                    // Pass the exact same rotation to the 2D Ultrasound Shader
                     probePlane.updateMatrixWorld();
                     usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
                 }
             });
         });
 
-        // Handle window resizing for split screen
         window.addEventListener('resize', () => {
             renderer3D.setSize(window.innerWidth / 2, window.innerHeight);
             camera3D.aspect = (window.innerWidth / 2) / window.innerHeight;
@@ -241,9 +274,7 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            // Slowly rotate the phantom box so students can see it in 3D space
-            phantomBox.rotation.y += 0.002;
-            
+            // NEW: The rotation has been completely removed!
             renderer3D.render(scene3D, camera3D);
             rendererUS.render(sceneUS, cameraUS);
         }
