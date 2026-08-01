@@ -221,16 +221,22 @@
                 uniform mat4 u_matrix;
                 varying vec2 vUv;
 
+                // Random noise function for the ultrasound speckle
+                float random(vec2 st) {
+                    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+                }
+
                 void main() {
-                    vec2 center = vec2(0.5, 1.0); // The tip of the probe
+                    vec2 center = vec2(0.5, 1.0); 
                     float dist = distance(vUv, center);
                     
+                    // The fan mask
                     if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) {
                         gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                         return;
                     }
 
-                    // Map current pixel to 3D space
+                    // Map 2D to 3D
                     float localX = (vUv.x * 2.0) - 1.0;
                     float localY = (vUv.y * 2.0) - 2.0; 
                     vec4 localPos = vec4(localX, localY, 0.0, 1.0);
@@ -244,42 +250,48 @@
                         return;
                     }
 
-                    // Get base density of the current pixel
                     float density = texture(u_volume, texCoord).r;
 
                     // ==========================================
-                    // ACOUSTIC SHADOWING (Raymarching)
+                    // HIGH-RES ACOUSTIC SHADOWING
                     // ==========================================
                     float shadowMultiplier = 1.0;
-                    
-                    // Draw a line from current pixel back up to the probe tip
                     vec2 rayDir = center - vUv; 
-                    int steps = 15; // Number of samples to check along the path
+                    
+                    const int steps = 50; // Increased from 15 to 50 for smooth shadows!
                     vec2 stepSize = rayDir / float(steps);
                     
                     vec2 checkUv = vUv;
-                    for(int i = 1; i <= 15; i++) {
+                    for(int i = 1; i <= 50; i++) {
                         checkUv += stepSize;
                         
-                        // Map the checked point to 3D space
                         float sX = (checkUv.x * 2.0) - 1.0;
                         float sY = (checkUv.y * 2.0) - 2.0;
                         vec4 sLocal = vec4(sX, sY, 0.0, 1.0);
                         vec4 sWorld = u_matrix * sLocal;
                         vec3 sTexCoord = sWorld.xyz * 0.5 + 0.5;
                         
-                        // Sample the density above us
-                        float densityAbove = texture(u_volume, sTexCoord).r;
-                        
-                        // If a pixel above us is highly dense (bone is > 0.9 in shader math), block the sound!
-                        if (densityAbove > 0.9) {
-                            shadowMultiplier = 0.1; // Block 90% of the brightness
-                            break;
+                        // Only check density if the ray is still inside the phantom box
+                        if (sTexCoord.x >= 0.0 && sTexCoord.x <= 1.0 && 
+                            sTexCoord.y >= 0.0 && sTexCoord.y <= 1.0 && 
+                            sTexCoord.z >= 0.0 && sTexCoord.z <= 1.0) {
+                            
+                            float densityAbove = texture(u_volume, sTexCoord).r;
+                            if (densityAbove > 0.9) {
+                                shadowMultiplier = 0.1; 
+                                break; 
+                            }
                         }
                     }
 
-                    // Apply the shadow to the final output
-                    gl_FragColor = vec4(density * shadowMultiplier, density * shadowMultiplier, density * shadowMultiplier, 1.0);
+                    // ==========================================
+                    // SPECKLE NOISE INJECTION
+                    // ==========================================
+                    // Generate a noise grain and blend it with the density
+                    float speckle = 0.6 + (0.4 * random(vUv)); 
+                    float finalOutput = density * shadowMultiplier * speckle;
+
+                    gl_FragColor = vec4(finalOutput, finalOutput, finalOutput, 1.0);
                 }
             `
         });
@@ -287,7 +299,9 @@
         const usScreen = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial);
         sceneUS.add(usScreen);
 
+        // ==========================================
         // 4. NETWORKING & ANIMATION
+        // ==========================================
         const peer = new Peer('us-sim-room-1');
 
         peer.on('connection', conn => {
@@ -296,14 +310,25 @@
 
             conn.on('data', data => {
                 if(data.a !== undefined && data.a !== null) {
+                    // 1. Capture the raw, unaltered Euler angles from the phone
                     const euler = new THREE.Euler(
-                        // THE FIX: Subtract 90 degrees from Pitch so the top edge points down
-                        THREE.MathUtils.degToRad(data.b - 90), 
+                        THREE.MathUtils.degToRad(data.b),
                         THREE.MathUtils.degToRad(data.a),
                         THREE.MathUtils.degToRad(-data.g),
                         'YXZ'
                     );
-                    probePlane.setRotationFromEuler(euler);
+                    
+                    // 2. Convert to a Quaternion (This eliminates Gimbal Lock)
+                    const q = new THREE.Quaternion().setFromEuler(euler);
+                    
+                    // 3. Create a 90-degree offset Quaternion (to tilt the handle)
+                    const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+                    
+                    // 4. Multiply them together! 
+                    q.multiply(tiltOffset);
+                    
+                    // Apply the bulletproof rotation to the probe and the shader
+                    probePlane.setRotationFromQuaternion(q);
                     probePlane.updateMatrixWorld();
                     usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
                 }
@@ -319,11 +344,7 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            // NEW: The rotation has been completely removed!
             renderer3D.render(scene3D, camera3D);
             rendererUS.render(sceneUS, cameraUS);
         }
         animate();
-    </script>
-</body>
-</html>
