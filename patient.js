@@ -4,8 +4,8 @@
 
 let texture3D = null;
 
-// Point this to the file you just downloaded!
-const patientDataFile = 'stent.nrrd'; 
+// Point this DIRECTLY to the web URL to bypass local file errors!
+const patientDataFile = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/nrrd/stent.nrrd';
 
 const loader = new THREE.NRRDLoader();
 
