@@ -6,14 +6,9 @@
     <title>Probe Controller</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body {
-            background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; margin: 0; overflow: hidden;
-        }
+        body { background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; text-align: center;}
         #login-screen { display: flex; }
-        
         h2 { color: #58a6ff; letter-spacing: 2px; text-transform: uppercase; }
         input[type="number"] { font-size: 24px; padding: 15px; width: 200px; text-align: center; margin-bottom: 20px; border-radius: 8px; border: 2px solid #30363d; background: #161b22; color: white; }
         button { font-size: 20px; padding: 15px 40px; background-color: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); margin-bottom: 20px; }
@@ -21,7 +16,7 @@
         
         #fire-btn { background-color: #58a6ff; width: 220px; height: 220px; border-radius: 50%; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4); margin-top: 20px; }
         #fire-btn:active { background-color: #79c0ff; box-shadow: 0 0 30px rgba(121, 192, 255, 0.8); }
-        #gyro-btn { background-color: #9b59b6; }
+        #gyro-btn { background-color: #9b59b6; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -34,17 +29,19 @@
         <div id="status" style="color: #8b949e; margin-top: 15px;">Waiting for PIN...</div>
     </div>
 
-    <!-- SCREEN 2: ACTIVE PROBE (Motion + Trigger) -->
+    <!-- SCREEN 2: ACTIVE PROBE -->
     <div id="probe-screen" class="screen">
         <h2>Transducer Active</h2>
-        <div style="color: #44ff44; margin-bottom: 20px;">Connected to Simulator</div>
+        <div style="color: #44ff44; margin-bottom: 20px;">Connected to Console</div>
         
-        <!-- Module 1 Trigger -->
+        <!-- Shown in Mod 1 -->
         <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
         
-        <!-- Modules 2 & 3: Gyroscope Calibration -->
-        <p id="gyro-text" style="color: #8b949e; margin-top: 20px; display: none;">To scan the patient, enable motion tracking.</p>
-        <button id="gyro-btn" style="display: none;" onclick="startMotion()">ENABLE MOTION</button>
+        <!-- Shown in Mod 2+ -->
+        <div id="gyro-container" style="display: none;">
+            <p style="color: #8b949e; margin-top: 20px;">To scan the patient, you must allow motion tracking.</p>
+            <button id="gyro-btn" onclick="startMotion()">ENABLE MOTION</button>
+        </div>
     </div>
 
     <script>
@@ -60,12 +57,16 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('probe-screen').style.display = 'flex';
                 
-                // Watch for commands from the laptop
+                // When the laptop clicks Next/Prev, it tells the phone which buttons to show!
                 conn.on('data', (data) => {
-                    if (data.command === 'unlock_mod2') {
-                        document.getElementById('fire-btn').style.display = 'none';
-                        document.getElementById('gyro-text').style.display = 'block';
-                        document.getElementById('gyro-btn').style.display = 'block';
+                    if (data.command === 'sync_module') {
+                        if (data.module === 1) {
+                            document.getElementById('fire-btn').style.display = 'flex';
+                            document.getElementById('gyro-container').style.display = 'none';
+                        } else {
+                            document.getElementById('fire-btn').style.display = 'none';
+                            document.getElementById('gyro-container').style.display = 'block';
+                        }
                     }
                 });
             });
@@ -76,30 +77,21 @@
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
-        // --- NEW: INERTIAL MEASUREMENT UNIT (IMU) ---
         function startMotion() {
-            document.getElementById('gyro-btn').innerText = "CALIBRATED";
+            document.getElementById('gyro-btn').innerText = "MOTION ACTIVE";
             document.getElementById('gyro-btn').style.backgroundColor = "#238636";
             
-            // Request permission for iOS 13+ devices
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            window.addEventListener('deviceorientation', handleOrientation);
-                        }
-                    }).catch(console.error);
+                DeviceOrientationEvent.requestPermission().then(permissionState => {
+                    if (permissionState === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                }).catch(console.error);
             } else {
-                // Non-iOS devices
                 window.addEventListener('deviceorientation', handleOrientation);
             }
         }
 
         function handleOrientation(event) {
-            // event.gamma represents the left-to-right tilt of the phone in degrees
-            if (conn && conn.open) {
-                conn.send({ orientation: { gamma: event.gamma } });
-            }
+            if (conn && conn.open) conn.send({ orientation: { gamma: event.gamma } });
         }
     </script>
 </body>
