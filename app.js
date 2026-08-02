@@ -1,16 +1,20 @@
-// Global State for the Caliper Tool to read
-window.isUSFrozen = false;
-window.currentUSDepth = 10;
-
 // ==========================================
 // THE APP ENGINE: Game Logic & Networking
 // ==========================================
 let score = 0;
 
-// Initialize the first level
-generateNewTest();
+// Global State for the Caliper Tool to read
+window.isUSFrozen = false;
+window.currentUSDepth = 10;
+
+// SAFETY CHECK: Only generate a fake test if phantom.js is loaded (Modules 1 & 2)
+if (typeof generateNewTest === 'function') {
+    generateNewTest();
+}
 
 function makeDiagnosis(guess) {
+    if (typeof currentDiagnosis === 'undefined') return; // Prevent crashes in Module 3
+    
     const feedbackEl = document.getElementById('feedback');
     if (guess === currentDiagnosis) {
         score += 10;
@@ -20,8 +24,8 @@ function makeDiagnosis(guess) {
         
         setTimeout(() => {
             feedbackEl.innerText = "Scan the block to find the hidden anomaly.";
-            feedbackEl.style.color = "#aaa";
-            generateNewTest();
+            feedbackEl.style.color = "#8b949e";
+            if (typeof generateNewTest === 'function') generateNewTest();
         }, 1500);
     } else {
         score -= 5;
