@@ -3,17 +3,17 @@
 // ==========================================
 let score = 0;
 
-// Global State for the Caliper Tool to read
+// Global State for the Caliper Tool
 window.isUSFrozen = false;
 window.currentUSDepth = 10;
 
-// SAFETY CHECK: Only generate a fake test if phantom.js is loaded (Modules 1 & 2)
+// SAFETY CHECK: Only generate a fake test if phantom.js exists!
 if (typeof generateNewTest === 'function') {
     generateNewTest();
 }
 
 function makeDiagnosis(guess) {
-    if (typeof currentDiagnosis === 'undefined') return; // Prevent crashes in Module 3
+    if (typeof currentDiagnosis === 'undefined') return; 
     
     const feedbackEl = document.getElementById('feedback');
     if (guess === currentDiagnosis) {
@@ -38,7 +38,6 @@ function makeDiagnosis(guess) {
 // ==========================================
 // DYNAMIC NETWORK CONNECTION (JACKBOX STYLE)
 // ==========================================
-// Generate a random 4-digit PIN
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 const roomId = 'sim-hosp-' + roomPIN;
 
@@ -57,27 +56,21 @@ peer.on('error', (err) => {
 
 peer.on('connection', conn => {
     document.getElementById('status').innerText = 'Probe Connected!';
-    document.getElementById('status').style.color = '#00ffcc';
-    document.getElementById('room-display').innerText = ''; // Hide the PIN to save space
+    document.getElementById('status').style.color = '#58a6ff';
+    document.getElementById('room-display').innerText = ''; 
 
     conn.on('data', data => {
-        // 1. Handle Depth Slider
         if(data.depth !== undefined) {
-            window.currentUSDepth = data.depth; // Update global state
+            window.currentUSDepth = data.depth;
             if(typeof setDepth === 'function') setDepth(data.depth);
         }
 
-        // 2. Handle Freeze Button
         if(data.freeze !== undefined) {
-            window.isUSFrozen = data.freeze; // Update global state
+            window.isUSFrozen = data.freeze; 
         }
         
-        // If frozen, block the movement updates!
-        if(window.isUSFrozen === true) {
-            return; 
-        }
+        if(window.isUSFrozen === true) return; 
 
-        // 3. Handle Movement
         if(data.a !== undefined && data.a !== null) {
             const euler = new THREE.Euler(
                 THREE.MathUtils.degToRad(data.b),
@@ -89,7 +82,7 @@ peer.on('connection', conn => {
             const tiltOffset = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
             q.multiply(tiltOffset);
             
-            setProbeRotation(q);
+            if(typeof setProbeRotation === 'function') setProbeRotation(q);
         }
     });
 });
