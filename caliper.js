@@ -58,11 +58,13 @@ function drawCalipers() {
         return; 
     }
 
-    // Styling to look like a real machine overlay
-    ctx.strokeStyle = '#00ffcc';
-    ctx.fillStyle = '#00ffcc';
+// Styling to look like a real machine overlay
+    ctx.strokeStyle = '#58a6ff'; // Changed to modern blue
+    ctx.fillStyle = '#58a6ff';   // Changed to modern blue
     ctx.lineWidth = 1.5;
-    ctx.font = 'bold 16px Courier New';
+    
+    // Change to a standard sans-serif font
+    ctx.font = 'bold 16px -apple-system, sans-serif';
 
     // Draw the green 'X' markers
     points.forEach(p => drawMarker(p.x, p.y));

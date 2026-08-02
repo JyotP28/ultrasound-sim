@@ -14,20 +14,25 @@ document.getElementById('canvas-container-3d').appendChild(renderer3D.domElement
 
 const phantomBox = new THREE.Mesh(
     new THREE.BoxGeometry(2, 2, 2),
-    new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true })
+    // Softer wireframe box
+    new THREE.MeshBasicMaterial({ color: 0x555555, wireframe: true }) 
 );
 scene3D.add(phantomBox);
 
 const probePlane = new THREE.Group();
 const planeGeo = new THREE.PlaneGeometry(2, 2);
 planeGeo.translate(0, -1, 0); 
-probePlane.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: 0x00ffcc, side: THREE.DoubleSide, transparent: true, opacity: 0.3 })));
+probePlane.add(new THREE.Mesh(planeGeo, 
+    // Soft medical blue plane instead of Matrix Green
+    new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })
+));
 
 const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); 
 handleGeo.translate(0, 0.75, 0);
 probePlane.add(new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0x888888 })));
 
-const marker3D = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+// Blue marker dot instead of neon yellow
+const marker3D = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x58a6ff }));
 marker3D.position.set(-0.45, 0.1, 0); 
 probePlane.add(marker3D);
 
