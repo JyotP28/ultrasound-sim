@@ -1,94 +1,141 @@
 /* ==========================================
-   MODERN MEDICAL OS STYLING
-========================================== */
-body { 
-    margin: 0; 
-    overflow: hidden; 
-    /* Deep slate gray instead of stark black */
-    background: #0d1116; 
-    color: #e6edf3; 
-    /* Clean, modern sans-serif fonts */
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    display: flex; 
+   GLOBAL RESET & BASE STYLES
+   ========================================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #0d1117;
+    color: #c9d1d9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden; /* Prevent scrolling */
+    display: flex;
     flex-direction: column;
+    height: 100vh;
 }
 
-/* Viewport Layout */
-#viewports { display: flex; width: 100vw; height: 85vh; }
-#spatial-view { width: 50vw; height: 100%; position: relative; background: #0d1116; }
-/* The actual ultrasound monitor stays pitch black for contrast */
-#us-monitor { width: 50vw; height: 100%; position: relative; background: #000; border-left: 2px solid #30363d; }
-
-/* ------------------------------------------
-   ON-SCREEN HUD (Glassmorphism Pills)
------------------------------------------- */
-.hud-text { 
-    position: absolute; 
-    z-index: 10; 
-    font-size: 13px; 
-    line-height: 1.6;
-    color: #c9d1d9; 
-    pointer-events: none; 
-    background: rgba(13, 17, 22, 0.7); /* Frosted glass look */
-    backdrop-filter: blur(4px);
-    padding: 10px 15px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.hud-text h3 { margin: 0 0 5px 0; font-size: 14px; color: #58a6ff; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-
-.top-left { top: 20px; left: 20px; }
-.top-right { top: 20px; right: 20px; text-align: right; }
-.bottom-right { bottom: 20px; right: 20px; color: #8b949e; text-align: right; }
-
-.screen-marker { 
-    position: absolute; top: 85px; left: 20px; 
-    width: 12px; height: 12px; 
-    background-color: #58a6ff; /* Soft medical blue instead of neon yellow */
-    border-radius: 50%; z-index: 10; 
-    box-shadow: 0 0 8px rgba(88, 166, 255, 0.6); 
+/* ==========================================
+   LAYOUT: DUAL MONITORS
+   ========================================= */
+#viewports {
+    display: flex;
+    flex: 1;
+    width: 100%;
 }
 
-/* Depth Ruler */
-.depth-ruler { position: absolute; right: 15px; top: 15%; height: 70%; display: flex; flex-direction: column; justify-content: space-between; color: #8b949e; font-size: 11px; }
-.depth-tick { width: 12px; border-bottom: 1px solid #30363d; text-align: right; padding-right: 18px; margin-bottom: -6px;}
-
-/* ------------------------------------------
-   THE CONTROL PANEL (Bottom Bar)
------------------------------------------- */
-#control-panel { 
-    height: 15vh; 
-    background: #161b22; 
-    border-top: 1px solid #30363d; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-around; 
-    padding: 0 30px; 
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+#spatial-view, #us-monitor {
+    flex: 1;
+    position: relative;
+    border-right: 2px solid #30363d;
 }
 
-#score-board { font-size: 20px; color: #8b949e; font-weight: 500; }
-#score-val { color: #58a6ff; font-size: 28px; font-weight: bold; margin-left: 8px;}
-#feedback { font-size: 15px; color: #8b949e; margin-top: 5px; font-weight: normal; }
-
-/* Modern Diagnostic Buttons */
-.diag-btn { 
-    background: #21262d; 
-    color: #c9d1d9; 
-    border: 1px solid #30363d; 
-    padding: 14px 28px; 
-    font-size: 15px; 
-    font-family: inherit;
-    cursor: pointer; 
-    border-radius: 6px; 
-    font-weight: 500; 
-    transition: all 0.2s ease; 
+#us-monitor {
+    border-right: none;
+    background-color: #000;
 }
-.diag-btn:hover { background: #30363d; border-color: #8b949e; transform: translateY(-2px); }
-.diag-btn.cyst { border-bottom: 3px solid #1f6feb; }
-.diag-btn.mass { border-bottom: 3px solid #8b949e; }
-.diag-btn.bone { border-bottom: 3px solid #f0f6fc; }
 
-/* The Caliper Overlay */
-#caliper-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; cursor: crosshair; }
-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+/* ==========================================
+   CANVAS CONTAINERS
+   ========================================= */
+#canvas-container-3d, #canvas-container-us {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#canvas-container-us canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* ==========================================
+   INSTRUCTOR HUD (TUTORIAL OVERLAY)
+   ========================================= */
+#instructor-hud {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    background: rgba(15, 20, 30, 0.85);
+    border: 1px solid #58a6ff;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    z-index: 100;
+    box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+    backdrop-filter: blur(10px);
+    pointer-events: none; /* Lets mouse interactions pass through to the canvas */
+    transition: box-shadow 0.3s ease-in-out;
+}
+
+#hud-title {
+    color: #58a6ff;
+    margin: 0 0 10px 0;
+    font-size: 22px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+#hud-instructions {
+    color: #ffffff;
+    font-size: 18px;
+    margin: 0 0 15px 0;
+    line-height: 1.5;
+}
+
+#hud-progress {
+    color: #8b949e;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ==========================================
+   ON-SCREEN TEXT (CLINICAL HUD)
+   ========================================= */
+.hud-text {
+    position: absolute;
+    z-index: 10;
+    font-size: 12px;
+    color: #8b949e;
+    pointer-events: none;
+    background: rgba(13, 17, 23, 0.7);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+}
+
+.top-left { top: 15px; left: 15px; }
+.top-right { top: 15px; right: 15px; text-align: right; }
+
+.hud-text h3 {
+    color: #58a6ff;
+    font-size: 14px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ==========================================
+   PROBE ORIENTATION MARKER
+   ========================================= */
+.screen-marker {
+    position: absolute;
+    top: 15px;
+    left: 110px;
+    width: 12px;
+    height: 12px;
+    background-color: #58a6ff;
+    border-radius: 50%;
+    z-index: 10;
+    box-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
+}

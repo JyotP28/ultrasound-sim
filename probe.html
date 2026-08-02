@@ -1,107 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Probe</title>
+    <title>Probe Controller</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #111; color: white; font-family: sans-serif; margin: 0; }
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #login-screen, #controller-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 20px;
+        }
+
+        #controller-screen {
+            display: none; /* Hidden until connected */
+        }
+
+        h2 { color: #58a6ff; letter-spacing: 2px; text-transform: uppercase; }
         
-        /* Setup Screen */
-        #setup-screen { display: flex; flex-direction: column; align-items: center; }
-        input { padding: 15px; font-size: 24px; text-align: center; margin-bottom: 20px; border-radius: 8px; border: 2px solid #555; background: #222; color: #fff; width: 180px; }
-        .btn { padding: 20px 40px; font-size: 20px; border-radius: 12px; border: none; cursor: pointer; font-weight: bold; width: 250px; margin-bottom: 15px; transition: 0.2s; }
-        .btn-connect { background: #00ffcc; color: #000; }
-        
-        /* Controller Screen (Hidden by default) */
-        #controller-screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; box-sizing: border-box; }
-        .btn-freeze { background: #444; color: #fff; height: 80px; font-size: 24px; border: 2px solid #666; }
-        .btn-freeze.frozen { background: #ff4444; color: white; border-color: #ffaaaa; }
-        
-        .slider-container { width: 90%; margin-top: 40px; text-align: center; }
-        input[type=range] { width: 100%; margin-top: 15px; }
-        
-        #log { font-family: monospace; font-size: 14px; color: #aaa; margin-top: 20px;}
+        input {
+            font-size: 24px;
+            padding: 15px;
+            width: 200px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 2px solid #30363d;
+            background: #161b22;
+            color: white;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 15px 40px;
+            background-color: #238636;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);
+        }
+
+        button:active { background-color: #2ea043; transform: scale(0.98); }
+
+        #status { margin-top: 20px; font-size: 16px; color: #8b949e; }
+
+        /* The Big "Fire" Button for Level 1 */
+        #fire-btn {
+            background-color: #58a6ff;
+            box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4);
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            font-size: 28px;
+            margin-top: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #fire-btn:active {
+            background-color: #79c0ff;
+            box-shadow: 0 0 30px rgba(121, 192, 255, 0.8);
+        }
     </style>
 </head>
 <body>
-    <!-- Screen 1: Connection -->
-    <div id="setup-screen">
-        <h3 style="margin-bottom: 10px;">Enter Room PIN</h3>
-        <input type="number" id="pinInput" placeholder="1234" />
-        <button class="btn btn-connect" id="startBtn">Connect Probe</button>
-        <div id="log">Status: Idle</div>
+
+    <!-- SCREEN 1: LOGIN -->
+    <div id="login-screen">
+        <h2>Enter Room PIN</h2>
+        <input type="number" id="pin-input" placeholder="e.g. 1234">
+        <button onclick="connectToSim()">CONNECT</button>
+        <div id="status">Waiting for PIN...</div>
     </div>
 
-    <!-- Screen 2: Live Controls -->
+    <!-- SCREEN 2: CONTROLLER -->
     <div id="controller-screen">
-        <h2 style="color: #00ffcc; margin-top: 0;">Live Transmission</h2>
+        <h2>Transducer Active</h2>
+        <div id="status-connected" style="color: #44ff44; margin-bottom: 30px;">Connected to Simulator</div>
         
-        <button class="btn btn-freeze" id="freezeBtn">FREEZE IMAGE</button>
-        
-        <div class="slider-container">
-            <h3>Depth: <span id="depthVal">10</span> cm</h3>
-            <input type="range" id="depthSlider" min="2" max="10" step="1" value="10">
-        </div>
+        <!-- The Level 1 Action Button -->
+        <button id="fire-btn" onclick="firePulse()">FIRE<br>PULSE</button>
     </div>
 
     <script>
-        let conn = null;
-        let isFrozen = false;
-        let currentDepth = 10;
-        const log = document.getElementById('log');
+        const peer = new Peer();
+        let conn;
 
-        // UI Event Listeners
-        document.getElementById('freezeBtn').addEventListener('click', (e) => {
-            isFrozen = !isFrozen;
-            e.target.innerText = isFrozen ? "UNFREEZE IMAGE" : "FREEZE IMAGE";
-            e.target.classList.toggle('frozen');
-        });
+        function connectToSim() {
+            const pin = document.getElementById('pin-input').value;
+            const roomId = 'sim-hosp-' + pin;
+            document.getElementById('status').innerText = 'Connecting...';
 
-        document.getElementById('depthSlider').addEventListener('input', (e) => {
-            currentDepth = e.target.value;
-            document.getElementById('depthVal').innerText = currentDepth;
-        });
+            conn = peer.connect(roomId);
 
-        function sendState(event) {
-            if (conn && conn.open) {
-                // Send the orientation AND the button/slider states!
-                conn.send({ 
-                    a: event.alpha, 
-                    b: event.beta, 
-                    g: event.gamma,
-                    freeze: isFrozen,
-                    depth: currentDepth
-                });
-            }
+            conn.on('open', () => {
+                // Switch UI from Login to Controller
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('controller-screen').style.display = 'flex';
+                
+                // For mobile browsers to allow audio/vibration later, 
+                // we trigger a tiny haptic feedback if supported!
+                if (navigator.vibrate) navigator.vibrate(50);
+            });
+
+            conn.on('error', (err) => {
+                document.getElementById('status').innerText = 'Connection Failed. Try again.';
+                document.getElementById('status').style.color = '#ff4444';
+            });
         }
 
-        document.getElementById('startBtn').addEventListener('click', async () => {
-            const pin = document.getElementById('pinInput').value;
-            if(pin.length !== 4) return alert('Enter a 4-digit PIN.');
-
-            try {
-                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission !== 'granted') return;
-                }
-
-                window.addEventListener('deviceorientation', sendState, true);
-
-                log.innerText = 'Connecting...';
-                const peer = new Peer();
-
-                peer.on('open', () => {
-                    conn = peer.connect('sim-hosp-' + pin);
-                    
-                    conn.on('open', () => {
-                        // Hide setup screen, show controller!
-                        document.getElementById('setup-screen').style.display = 'none';
-                        document.getElementById('controller-screen').style.display = 'flex';
-                    });
-                });
-            } catch (e) { log.innerText = 'Error: ' + e.message; }
-        });
+        function firePulse() {
+            if (conn && conn.open) {
+                // Send the exact command the State Machine is looking for!
+                conn.send({ fire: true });
+                
+                // Haptic feedback so the student feels the "pulse"
+                if (navigator.vibrate) navigator.vibrate(100);
+            }
+        }
     </script>
 </body>
 </html>
