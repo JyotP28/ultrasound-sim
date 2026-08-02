@@ -1,106 +1,114 @@
 /* ==========================================
    GLOBAL RESET & BASE STYLES
    ========================================= */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    background-color: #0d1117;
+    background-color: #010409;
     color: #c9d1d9;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    overflow: hidden; /* Prevent scrolling */
+    overflow: hidden;
+    height: 100vh;
+}
+
+#app-container {
     display: flex;
-    flex-direction: column;
+    width: 100vw;
     height: 100vh;
 }
 
 /* ==========================================
-   LAYOUT: DUAL MONITORS
+   LEFT PANEL: EDUCATION
    ========================================= */
-#viewports {
+#education-panel {
+    width: 35%;
+    min-width: 400px;
+    background-color: #0d1117;
+    border-right: 1px solid #30363d;
     display: flex;
-    flex: 1;
-    width: 100%;
+    flex-direction: column;
+    box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+    z-index: 10;
 }
 
-#spatial-view, #us-monitor {
-    flex: 1;
-    position: relative;
-    border-right: 2px solid #30363d;
+.edu-header {
+    padding: 40px 40px 20px 40px;
+    border-bottom: 1px solid #21262d;
+    background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
 }
 
-#us-monitor {
-    border-right: none;
-    background-color: #000;
+#hud-progress {
+    color: #58a6ff;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+#hud-title {
+    color: #ffffff;
+    font-size: 28px;
+    line-height: 1.2;
+}
+
+.edu-body {
+    padding: 30px 40px;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+#hud-instructions {
+    color: #58a6ff;
+    font-size: 20px;
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+.clinical-text {
+    color: #8b949e;
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+.edu-footer {
+    padding: 30px 40px;
+    background-color: #161b22;
+    border-top: 1px solid #30363d;
+    text-align: center;
 }
 
 /* ==========================================
-   CANVAS CONTAINERS
+   RIGHT PANEL: SIMULATION DECK
    ========================================= */
+#simulation-panel {
+    width: 65%;
+    display: flex;
+    flex-direction: column;
+}
+
+.sim-viewport {
+    flex: 1;
+    position: relative;
+    border-bottom: 2px solid #30363d;
+}
+
+#us-monitor {
+    background-color: #000;
+    border-bottom: none;
+}
+
 #canvas-container-3d, #canvas-container-us {
     width: 100%;
     height: 100%;
     position: absolute;
     top: 0;
     left: 0;
-    z-index: 1;
 }
 
-#canvas-container-us canvas {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
-}
+#canvas-container-us canvas { width: 100% !important; height: 100% !important; }
 
 /* ==========================================
-   INSTRUCTOR HUD (TUTORIAL OVERLAY)
-   ========================================= */
-#instructor-hud {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 600px;
-    background: rgba(15, 20, 30, 0.85);
-    border: 1px solid #58a6ff;
-    border-radius: 12px;
-    padding: 25px;
-    text-align: center;
-    z-index: 100;
-    box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
-    backdrop-filter: blur(10px);
-    pointer-events: none; /* Lets mouse interactions pass through to the canvas */
-    transition: box-shadow 0.3s ease-in-out;
-}
-
-#hud-title {
-    color: #58a6ff;
-    margin: 0 0 10px 0;
-    font-size: 22px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-}
-
-#hud-instructions {
-    color: #ffffff;
-    font-size: 18px;
-    margin: 0 0 15px 0;
-    line-height: 1.5;
-}
-
-#hud-progress {
-    color: #8b949e;
-    font-size: 14px;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* ==========================================
-   ON-SCREEN TEXT (CLINICAL HUD)
+   HUD TEXT OVERLAYS
    ========================================= */
 .hud-text {
     position: absolute;
@@ -116,26 +124,8 @@ body {
 
 .top-left { top: 15px; left: 15px; }
 .top-right { top: 15px; right: 15px; text-align: right; }
-
-.hud-text h3 {
-    color: #58a6ff;
-    font-size: 14px;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* ==========================================
-   PROBE ORIENTATION MARKER
-   ========================================= */
+.hud-text h3 { color: #58a6ff; font-size: 14px; margin-bottom: 5px; }
 .screen-marker {
-    position: absolute;
-    top: 15px;
-    left: 110px;
-    width: 12px;
-    height: 12px;
-    background-color: #58a6ff;
-    border-radius: 50%;
-    z-index: 10;
-    box-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
+    position: absolute; top: 15px; left: 110px; width: 12px; height: 12px;
+    background-color: #58a6ff; border-radius: 50%; z-index: 10;
 }

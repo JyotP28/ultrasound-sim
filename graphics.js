@@ -1,8 +1,7 @@
-// ==========================================
-// GRAPHICS ENGINE (The Scene Manager)
-// ==========================================
-const viewportWidth = window.innerWidth / 2;
-const viewportHeight = window.innerHeight * 0.85;
+// Calculate dimensions based on the new stacked HTML containers
+const container3D = document.getElementById('spatial-view');
+let viewportWidth = container3D.clientWidth;
+let viewportHeight = container3D.clientHeight;
 
 // --- Left Viewport (3D Spatial World) ---
 const scene3D = new THREE.Scene();
@@ -15,7 +14,8 @@ document.getElementById('canvas-container-3d').appendChild(renderer3D.domElement
 
 // --- Right Viewport (2D Ultrasound Monitor) ---
 const sceneUS = new THREE.Scene();
-const cameraUS = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+const aspectUS = viewportWidth / viewportHeight;
+const cameraUS = new THREE.OrthographicCamera(-aspectUS, aspectUS, 1, -1, 0.1, 10);
 cameraUS.position.z = 1;
 
 const rendererUS = new THREE.WebGLRenderer({ antialias: true });
@@ -135,12 +135,22 @@ function animate() {
 
 // Window resizing handler
 window.addEventListener('resize', () => {
-    const newWidth = window.innerWidth / 2;
-    const newHeight = window.innerHeight * 0.85;
-    renderer3D.setSize(newWidth, newHeight);
-    camera3D.aspect = newWidth / newHeight;
+    viewportWidth = container3D.clientWidth;
+    viewportHeight = container3D.clientHeight;
+    
+    // Update 3D Spatial Camera
+    renderer3D.setSize(viewportWidth, viewportHeight);
+    camera3D.aspect = viewportWidth / viewportHeight;
     camera3D.updateProjectionMatrix();
-    rendererUS.setSize(newWidth, newHeight);
+    
+    // Update 2D Ultrasound Camera (Prevents Stretching!)
+    rendererUS.setSize(viewportWidth, viewportHeight);
+    const aspectUS = viewportWidth / viewportHeight;
+    cameraUS.left = -aspectUS;
+    cameraUS.right = aspectUS;
+    cameraUS.top = 1;
+    cameraUS.bottom = -1;
+    cameraUS.updateProjectionMatrix();
 });
 
 animate();

@@ -12,39 +12,51 @@
 </head>
 <body>
 
-    <!-- The Gamified Instructor HUD -->
-    <div id="instructor-hud">
-        <h2 id="hud-title">Loading Curriculum...</h2>
-        <p id="hud-instructions">Please wait.</p>
-        <div id="hud-progress">Step <span id="step-count">0</span>/3</div>
-    </div>
-
-    <!-- Dual Monitor Layout -->
-    <div id="viewports">
+    <div id="app-container">
         
-        <!-- Left Screen: The 3D Spatial World -->
-        <div id="spatial-view">
-            <div class="hud-text top-left">
-                <h3>SPATIAL VIEW</h3>
-                <span id="status" style="color: #ffcc00;">Initializing Network...</span><br>
-                <span id="room-display" style="font-size: 18px; color: #fff; font-weight: bold;"></span>
+        <!-- LEFT PANEL: The Educational Syllabus -->
+        <div id="education-panel">
+            <div class="edu-header">
+                <div id="hud-progress">STEP <span id="step-count">0</span></div>
+                <h1 id="hud-title">Loading Curriculum...</h1>
             </div>
-            <div id="canvas-container-3d"></div>
+            
+            <div class="edu-body">
+                <h2 id="hud-instructions">Please wait.</h2>
+                <div id="edu-details" class="clinical-text">Connecting to simulation engine...</div>
+            </div>
+            
+            <div class="edu-footer">
+                <span id="status" style="color: #ffcc00; font-weight: bold;">Initializing Network...</span>
+                <span id="room-display" style="font-size: 24px; color: #fff; font-weight: bold; display: block; margin-top: 10px;"></span>
+            </div>
         </div>
 
-        <!-- Right Screen: The 2D Ultrasound Monitor -->
-        <div id="us-monitor">
-            <div class="hud-text top-left">SIM-CLINIC<br>MI: 0.9 TIS: 0.2</div>
-            <div class="screen-marker"></div>
-            <div class="hud-text top-right">Probe: Linear<br>Freq: 10.0 MHz</div>
-            <div id="canvas-container-us"></div>
-        </div>
+        <!-- RIGHT PANEL: The Simulation Deck (Stacked) -->
+        <div id="simulation-panel">
+            
+            <!-- Top Half: 3D Spatial World -->
+            <div id="spatial-view" class="sim-viewport">
+                <div class="hud-text top-left"><h3>SPATIAL VIEW (3D)</h3></div>
+                <div id="canvas-container-3d"></div>
+            </div>
 
+            <!-- Bottom Half: 2D Ultrasound Monitor -->
+            <div id="us-monitor" class="sim-viewport">
+                <div class="hud-text top-left">SIM-CLINIC<br>MI: 0.9 TIS: 0.2</div>
+                <div class="screen-marker"></div>
+                <div class="hud-text top-right">Probe: Linear<br>Freq: 10.0 MHz</div>
+                <div id="canvas-container-us"></div>
+            </div>
+
+        </div>
     </div>
 
-    <!-- Application Logic (Loaded in sequential order) -->
+    <!-- Application Logic -->
     <script src="graphics.js"></script>
-    <script src="module2.js"></script> <!-- ADD THIS LINE -->
+    <script src="module2.js"></script>
+    <script src="module3.js"></script> <!-- ADD THIS LINE -->
     <script src="app.js"></script>
+
 </body>
 </html>
