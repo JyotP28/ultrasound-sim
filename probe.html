@@ -91,13 +91,22 @@
         <div id="status">Waiting for PIN...</div>
     </div>
 
-    <!-- SCREEN 2: CONTROLLER -->
-    <div id="controller-screen">
-        <h2>Transducer Active</h2>
-        <div id="status-connected" style="color: #44ff44; margin-bottom: 30px;">Connected to Simulator</div>
+    <!-- SCREEN 2: MODULE 1 CONTROLS -->
+    <div id="controller-screen" style="display: none;">
+        <h2>Module 1</h2>
+        <div style="color: #44ff44; margin-bottom: 30px;">Connected to Simulator</div>
+        <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
         
-        <!-- The Level 1 Action Button -->
-        <button id="fire-btn" onclick="firePulse()">FIRE<br>PULSE</button>
+        <!-- Appears automatically when Level 1 ends -->
+        <button id="next-mod-btn" style="display: none; background: #9b59b6; margin-top: 20px;" onclick="startMod2()">START MODULE 2</button>
+    </div>
+
+    <!-- SCREEN 3: MODULE 2 CONTROLS -->
+    <div id="mod2-screen" style="display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px;">
+        <h2>Module 2: Scan</h2>
+        <p style="color: #8b949e; text-align: center;">Use the slider to sweep the transducer left and right across the patient.</p>
+        
+        <input type="range" id="sweep-slider" min="0" max="100" value="50" style="width: 80%; height: 40px; margin-top: 40px;" oninput="sendSweep(this.value)">
     </div>
 
     <script>
@@ -106,36 +115,40 @@
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
-            const roomId = 'sim-hosp-' + pin;
+            conn = peer.connect('sim-hosp-' + pin);
             document.getElementById('status').innerText = 'Connecting...';
 
-            conn = peer.connect(roomId);
-
             conn.on('open', () => {
-                // Switch UI from Login to Controller
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('controller-screen').style.display = 'flex';
                 
-                // For mobile browsers to allow audio/vibration later, 
-                // we trigger a tiny haptic feedback if supported!
-                if (navigator.vibrate) navigator.vibrate(50);
-            });
-
-            conn.on('error', (err) => {
-                document.getElementById('status').innerText = 'Connection Failed. Try again.';
-                document.getElementById('status').style.color = '#ff4444';
+                // Watch for network messages FROM the laptop
+                conn.on('data', (data) => {
+                    if (data.command === 'unlock_mod2') {
+                        document.getElementById('fire-btn').style.display = 'none';
+                        document.getElementById('next-mod-btn').style.display = 'block';
+                    }
+                });
             });
         }
 
         function firePulse() {
-            if (conn && conn.open) {
-                // Send the exact command the State Machine is looking for!
-                conn.send({ fire: true });
-                
-                // Haptic feedback so the student feels the "pulse"
-                if (navigator.vibrate) navigator.vibrate(100);
-            }
+            if (conn && conn.open) conn.send({ fire: true });
+            
+            // Fake the transition for now by unlocking Mod 2 after they press fire once
+            setTimeout(() => {
+                document.getElementById('fire-btn').style.display = 'none';
+                document.getElementById('next-mod-btn').style.display = 'block';
+            }, 6000); 
+        }
+
+        function startMod2() {
+            if (conn && conn.open) conn.send({ action: 'start_mod_2' });
+            document.getElementById('controller-screen').style.display = 'none';
+            document.getElementById('mod2-screen').style.display = 'flex';
+        }
+
+        function sendSweep(val) {
+            if (conn && conn.open) conn.send({ sweep: val });
         }
     </script>
-</body>
-</html>

@@ -16,8 +16,16 @@ const Tutorial = {
                 3: { text: "Excellent. Notice how the returning echo creates a bright scan line. Deeper targets take longer to return. Module 1 Complete.", action: "next_module" }
             },
             totalSteps: 3
+        },
+        2: {
+            title: "Module 2: Echogenicity",
+            steps: {
+                1: { text: "Brightness represents the volume (amplitude) of the returning echo. Press NEXT on your phone to begin the scan.", action: "start_mod_2" },
+                2: { text: "Slide your phone LEFT to find the ANECHOIC (black) fluid cyst. Sound passes right through it without reflecting.", action: "find_fluid" },
+                3: { text: "Now slide your phone RIGHT to find the HYPERECHOIC (bright white) bone. Notice how loudly it reflects sound.", action: "find_bone" }
+            },
+            totalSteps: 3
         }
-        // We will add Module 2 (Echogenicity) and Module 3 (Frequency) here as we level up!
     },
 
     init: function() {
@@ -72,6 +80,11 @@ const Tutorial = {
             
             if (this.syllabus[this.currentModule]) {
                 this.updateHUD();
+                
+                // TRIGGER MODULE 2 GRAPHICS
+                if (this.currentModule === 2 && typeof loadModule2 === 'function') {
+                    loadModule2(); 
+                }
             } else {
                 document.getElementById('hud-title').innerText = "End of Demo";
                 document.getElementById('hud-instructions').innerText = "More modules coming soon in the next update.";
@@ -111,6 +124,10 @@ peer.on('connection', conn => {
             if (typeof triggerPulseAnimation === 'function') {
                 triggerPulseAnimation();
             }
+        }
+        if (data.action === 'start_mod_2') Tutorial.evaluateAction('start_mod_2');
+        if (data.sweep !== undefined && typeof updateMod2Probe === 'function') {
+            updateMod2Probe(data.sweep);
         }
     });
 });

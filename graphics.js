@@ -1,45 +1,19 @@
-// The Graphics Engine: Handles all Three.js scenes and shaders
+// ==========================================
+// GRAPHICS ENGINE (The Scene Manager)
+// ==========================================
 const viewportWidth = window.innerWidth / 2;
 const viewportHeight = window.innerHeight * 0.85;
 
-// --- Left Viewport (3D) ---
+// --- Left Viewport (3D Spatial World) ---
 const scene3D = new THREE.Scene();
 const camera3D = new THREE.PerspectiveCamera(50, viewportWidth / viewportHeight, 0.1, 100);
-camera3D.position.set(0, 1.5, 4.5); 
-camera3D.lookAt(0, 0, 0);
+camera3D.position.set(0, 0, 4); 
 
 const renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer3D.setSize(viewportWidth, viewportHeight);
 document.getElementById('canvas-container-3d').appendChild(renderer3D.domElement);
 
-const phantomBox = new THREE.Mesh(
-    new THREE.BoxGeometry(2, 2, 2),
-    // Softer wireframe box
-    new THREE.MeshBasicMaterial({ color: 0x555555, wireframe: true }) 
-);
-scene3D.add(phantomBox);
-
-const probePlane = new THREE.Group();
-const planeGeo = new THREE.PlaneGeometry(2, 2);
-planeGeo.translate(0, -1, 0); 
-probePlane.add(new THREE.Mesh(planeGeo, 
-    // Soft medical blue plane instead of Matrix Green
-    new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })
-));
-
-const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); 
-handleGeo.translate(0, 0.75, 0);
-probePlane.add(new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0x888888 })));
-
-// Blue marker dot instead of neon yellow
-const marker3D = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x58a6ff }));
-marker3D.position.set(-0.45, 0.1, 0); 
-probePlane.add(marker3D);
-
-probePlane.position.set(0, 1.2, 0); 
-scene3D.add(probePlane);
-
-// --- Right Viewport (2D Ultrasound) ---
+// --- Right Viewport (2D Ultrasound Monitor) ---
 const sceneUS = new THREE.Scene();
 const cameraUS = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
 cameraUS.position.z = 1;
@@ -48,114 +22,118 @@ const rendererUS = new THREE.WebGLRenderer({ antialias: true });
 rendererUS.setSize(viewportWidth, viewportHeight);
 document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
 
-const usMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-        u_volume: { value: texture3D }, 
-        u_matrix: { value: new THREE.Matrix4() }
-    },
-    vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `
-        precision highp float;
-        precision highp sampler3D;
-        uniform sampler3D u_volume;
-        uniform mat4 u_matrix;
-        varying vec2 vUv;
+// ==========================================
+// MODULE 1: THE PULSE-ECHO PRINCIPLE
+// (Chunked logic specific to this lesson)
+// ==========================================
 
-        // High-frequency noise generator for Ultrasound Speckle
-        float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
+// 3D Assets
+const probe = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x888888}));
+probe.position.y = 1.5;
+scene3D.add(probe);
 
-        void main() {
-            vec2 center = vec2(0.5, 1.0); // The probe head (top center)
-            float dist = distance(vUv, center);
+const target1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
+target1.position.y = 0.5; // Shallow target
+scene3D.add(target1);
+
+const target2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
+target2.position.y = -1.0; // Deep target
+scene3D.add(target2);
+
+// The Sound Wave (Pulse)
+const pulseMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.05), new THREE.MeshBasicMaterial({color: 0x44ff44, transparent: true, opacity: 0}));
+scene3D.add(pulseMesh);
+
+// The Returning Echoes
+const echoMesh1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.02), new THREE.MeshBasicMaterial({color: 0x58a6ff, transparent: true, opacity: 0}));
+const echoMesh2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.02), new THREE.MeshBasicMaterial({color: 0x58a6ff, transparent: true, opacity: 0}));
+scene3D.add(echoMesh1);
+scene3D.add(echoMesh2);
+
+// Ultrasound Monitor Assets (The Scan Lines)
+const scanDot1 = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.05), new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0}));
+scanDot1.position.set(0, 0.3, 0); // Mapped to shallow depth
+sceneUS.add(scanDot1);
+
+const scanDot2 = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.05), new THREE.MeshBasicMaterial({color: 0xffffff, transparent: true, opacity: 0}));
+scanDot2.position.set(0, -0.7, 0); // Mapped to deep depth
+sceneUS.add(scanDot2);
+
+// Animation State
+let pulse = { active: false, y: 1.5 };
+let echoes = []; 
+
+// This is called by app.js when the phone presses FIRE
+window.triggerPulseAnimation = function() {
+    if (pulse.active) return;
+    
+    // Reset visuals
+    pulse.active = true;
+    pulse.y = 1.3; // Start just below probe
+    pulseMesh.material.opacity = 0.8;
+    
+    scanDot1.material.opacity = 0;
+    scanDot2.material.opacity = 0;
+    echoes = [];
+};
+
+// ==========================================
+// THE RENDER LOOP (Physics & Drawing)
+// ==========================================
+function animate() {
+    requestAnimationFrame(animate);
+
+    // 1. ANIMATE THE PULSE GOING DOWN
+    if (pulse.active) {
+        pulse.y -= 0.04; 
+        pulseMesh.position.y = pulse.y;
+
+        // Hit Shallow Target? Spawn an upward echo!
+        if (Math.abs(pulse.y - target1.position.y) < 0.02 && echoes.filter(e => e.id === 1).length === 0) {
+            target1.material.color.setHex(0xffffff); // Flash target
+            echoes.push({ y: target1.position.y, id: 1, mesh: echoMesh1 });
+            echoMesh1.material.opacity = 0.8;
+            echoMesh1.position.y = target1.position.y;
+        } else { target1.material.color.setHex(0x2196f3); }
+
+        // Hit Deep Target? Spawn an upward echo!
+        if (Math.abs(pulse.y - target2.position.y) < 0.02 && echoes.filter(e => e.id === 2).length === 0) {
+            target2.material.color.setHex(0xffffff); // Flash target
+            echoes.push({ y: target2.position.y, id: 2, mesh: echoMesh2 });
+            echoMesh2.material.opacity = 0.8;
+            echoMesh2.position.y = target2.position.y;
+        } else { target2.material.color.setHex(0x2196f3); }
+
+        // Hide pulse when it passes the screen
+        if (pulse.y < -2.5) { 
+            pulse.active = false; 
+            pulseMesh.material.opacity = 0; 
+        } 
+    }
+
+    // 2. ANIMATE THE ECHOES GOING BACK UP
+    for(let i = echoes.length - 1; i >= 0; i--) {
+        let echo = echoes[i];
+        echo.y += 0.04; // Travel back to probe
+        echo.mesh.position.y = echo.y;
+
+        // Did the echo reach the transducer?
+        if (echo.y >= 1.3) {
+            echo.mesh.material.opacity = 0; // Hide echo
             
-            // Mask out the UI to create the fan shape
-            if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) { 
-                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); 
-                return; 
-            }
-
-            // Map 2D screen coordinate to 3D plane in the patient
-            float localX = (vUv.x * 2.0) - 1.0;
-            float localY = (vUv.y * 2.0) - 2.0; 
-            vec4 localPos = vec4(localX, localY, 0.0, 1.0);
-            vec4 worldPos = u_matrix * localPos;
-            vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
-
-            // Bounds check
-            if (texCoord.x < 0.0 || texCoord.x > 1.0 || texCoord.y < 0.0 || texCoord.y > 1.0 || texCoord.z < 0.0 || texCoord.z > 1.0) {
-                gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); 
-                return;
-            }
-
-            // 1. READ CT DENSITY
-            float density = texture(u_volume, texCoord).r;
+            // Draw the returning echo as a scan line on the Ultrasound Monitor!
+            if (echo.id === 1) scanDot1.material.opacity = 1.0;
+            if (echo.id === 2) scanDot2.material.opacity = 1.0;
             
-            // 2. ECHOGENICITY (Tissue Boundaries)
-            vec3 stepUp = texCoord + vec3(0.0, 0.01, 0.0);
-            float densityAbove = texture(u_volume, stepUp).r;
-            // Slightly soften the reflection so it doesn't overpower the tissue
-            float reflection = abs(density - densityAbove) * 1.5; 
-            
-            // Boost the base density multiplier from 0.4 to 0.8 so tissue stays gray!
-            float baseUS = (density * 0.8) + reflection;
-
-            // 3. ACOUSTIC SHADOWING
-            float shadow = 1.0;
-            vec2 rayDir = center - vUv; 
-            vec2 stepSize = rayDir / 25.0; 
-            vec2 checkUv = vUv;
-            
-            for(int i = 1; i <= 25; i++) {
-                checkUv += stepSize;
-                float sX = (checkUv.x * 2.0) - 1.0;
-                float sY = (checkUv.y * 2.0) - 2.0;
-                vec4 sLocal = vec4(sX, sY, 0.0, 1.0);
-                vec4 sWorld = u_matrix * sLocal;
-                vec3 sTexCoord = sWorld.xyz * 0.5 + 0.5;
-                
-                if (sTexCoord.x >= 0.0 && sTexCoord.x <= 1.0 && sTexCoord.y >= 0.0 && sTexCoord.y <= 1.0 && sTexCoord.z >= 0.0 && sTexCoord.z <= 1.0) {
-                    float shadowDensity = texture(u_volume, sTexCoord).r;
-                    if (shadowDensity > 0.6) { 
-                        shadow -= 0.25; 
-                    }
-                }
-            }
-            shadow = clamp(shadow, 0.0, 1.0);
-
-            // 4. DEPTH ATTENUATION 
-            // Decrease the fade-out speed so the bottom of the screen isn't completely black
-            float attenuation = 1.0 - ((dist - 0.1) / 1.5); 
-            
-            // 5. SPECKLE NOISE
-            float speckle = 0.6 + (0.4 * random(vUv * 100.0)); 
-            
-            // Combine all physics
-            float finalOutput = baseUS * shadow * attenuation * speckle;
-            
-            // THE FIX: Instead of crushing the blacks with smoothstep, we just apply a 1.8x Gain (Brightness) boost!
-            finalOutput = clamp(finalOutput * 1.8, 0.0, 1.0);
-
-            gl_FragColor = vec4(finalOutput, finalOutput, finalOutput, 1.0);
+            echoes.splice(i, 1); // Remove from tracking array
         }
-    `
-});
-sceneUS.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial));
+    }
 
-// Utility function for app.js to use
-function setProbeRotation(quaternion) {
-    probePlane.setRotationFromQuaternion(quaternion);
-    probePlane.updateMatrixWorld();
-    usMaterial.uniforms.u_matrix.value.copy(probePlane.matrixWorld);
+    renderer3D.render(scene3D, camera3D);
+    rendererUS.render(sceneUS, cameraUS);
 }
 
-// Function to handle the Zoom/Depth slider
-function setDepth(cm) {
-    // Standard depth is 10cm (zoom = 1). If they slider down to 5cm, zoom = 2.
-    cameraUS.zoom = 10 / cm; 
-    cameraUS.updateProjectionMatrix();
-}
-
-// Window resizing & Animation Loop
+// Window resizing handler
 window.addEventListener('resize', () => {
     const newWidth = window.innerWidth / 2;
     const newHeight = window.innerHeight * 0.85;
@@ -165,9 +143,4 @@ window.addEventListener('resize', () => {
     rendererUS.setSize(newWidth, newHeight);
 });
 
-function animate() {
-    requestAnimationFrame(animate);
-    renderer3D.render(scene3D, camera3D);
-    rendererUS.render(sceneUS, cameraUS);
-}
 animate();
