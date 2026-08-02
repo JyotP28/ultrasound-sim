@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vet Simulator - Module 3</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Core Libraries -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- NEW: Medical Data Loaders -->
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/NRRDLoader.js"></script>
+</head>
+<body>
+
+    <div id="viewports">
+        <div id="spatial-view">
+            <div class="hud-text top-left">
+                <h3>MODULE 3: CANINE ABDOMEN</h3>
+                <span id="status">Generating Room PIN...</span><br>
+                <span id="room-display" style="font-size: 18px; color: #fff; font-weight: bold;"></span>
+            </div>
+            <!-- Loading screen for the large medical file -->
+            <div id="loading-overlay" style="position:absolute; top:45%; width:100%; text-align:center; color:#58a6ff; font-weight:bold; z-index:50;">
+                Downloading Vet CT Data... <span id="loading-progress">0%</span>
+            </div>
+            <div id="canvas-container-3d"></div>
+        </div>
+
+        <div id="us-monitor">
+            <div class="hud-text top-left">VET-CLINIC<br>MI: 0.9 TIS: 0.2</div>
+            <div class="screen-marker"></div>
+            <div class="hud-text top-right">Probe: Micro-Convex<br>Freq: 8.0 MHz</div>
+            <div id="canvas-container-us"></div>
+            <canvas id="caliper-layer"></canvas> 
+        </div>
+    </div>
+
+    <!-- The Control Panel -->
+    <div id="control-panel">
+        <div id="score-board">
+            Patient: <span id="score-val" style="color:#fff;">Golden Retriever (7yo)</span>
+            <div id="feedback">Scan to locate the gallbladder. Press FREEZE to measure.</div>
+        </div>
+    </div>
+
+    <!-- Load Application Logic -->
+    <script src="patient.js"></script> <!-- Replaced phantom.js! -->
+    <script src="graphics.js"></script>
+    <script src="app.js"></script>
+    <script src="caliper.js"></script>
+</body>
+</html>
