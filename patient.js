@@ -2,10 +2,16 @@
 // THE PATIENT ENGINE (Loading Real Medical Data)
 // ==========================================
 
-let texture3D = null;
+// We MUST initialize a blank 1x1x1 texture. 
+// If we set this to null, the graphics engine will crash before the file finishes downloading!
+const dummyData = new Uint8Array([0]);
+let texture3D = new THREE.DataTexture3D(dummyData, 1, 1, 1);
+texture3D.format = THREE.RedFormat;
+texture3D.type = THREE.UnsignedByteType;
+texture3D.needsUpdate = true;
 
-// Point this DIRECTLY to the web URL to bypass local file errors!
-const patientDataFile = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/nrrd/stent.nrrd';
+// Point to the frozen r128 tag on GitHub (NOT master!)
+const patientDataFile = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/models/nrrd/stent.nrrd';
 
 const loader = new THREE.NRRDLoader();
 
@@ -21,8 +27,6 @@ loader.load(
         
         // 2. THE CT NORMALIZER (Windowing)
         // We set a clinical "Window" to focus on tissue and bone.
-        // Anything below -200 (air/fat) becomes pitch black (0).
-        // Anything above 800 (bone/metal) becomes bright white (255).
         const minCT = -200; 
         const maxCT = 800;  
 
@@ -36,11 +40,8 @@ loader.load(
             normalizedData[i] = norm * 255;
         }
 
-        // 3. CREATE THE 3D TEXTURE
+        // 3. OVERWRITE THE DUMMY TEXTURE WITH REAL MEDICAL DATA
         texture3D = new THREE.DataTexture3D(normalizedData, volume.xLength, volume.yLength, volume.zLength);
-        
-        // Because we normalized it to 0-255, we can use UnsignedByteType!
-        // This means it will work perfectly with our existing ultrasound shader.
         texture3D.type = THREE.UnsignedByteType; 
         texture3D.format = THREE.RedFormat;
         texture3D.minFilter = texture3D.magFilter = THREE.LinearFilter;
@@ -61,7 +62,7 @@ loader.load(
     },
     
     function (error) {
-        document.getElementById('loading-overlay').innerText = "Error: Could not locate " + patientDataFile;
+        document.getElementById('loading-overlay').innerText = "Error: Could not load data. Check console.";
         document.getElementById('loading-overlay').style.color = "#ff4444";
         console.error("Error loading patient data:", error);
     }

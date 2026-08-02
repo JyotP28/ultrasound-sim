@@ -10,6 +10,8 @@
     
     <!-- NEW: Medical Data Loaders -->
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+    <!-- We MUST load Volume.js before the NRRD loader or it crashes! -->
+    <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/misc/Volume.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/NRRDLoader.js"></script>
 </head>
 <body>
