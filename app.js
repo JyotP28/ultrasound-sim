@@ -1,12 +1,22 @@
 // ==========================================
 // THE TUTORIAL ENGINE (LMS Navigation)
 // ==========================================
-
+// ==========================================
+// LANDING PAGE LOGIC
+// ==========================================
+window.startSimulator = function() {
+    const landing = document.getElementById('landing-page');
+    landing.style.opacity = '0'; // Trigger the CSS fade
+    setTimeout(() => {
+        landing.style.display = 'none'; // Remove it from the DOM flow after fading
+    }, 500); // 500ms matches the CSS transition time
+};
 let activeConnection = null; 
 
 const Tutorial = {
     currentModule: 1,
     currentStep: 1,
+    lastLoadedModule: 0, // NEW: Tracks the actual 3D scene currently loaded
     
     syllabus: {
         1: {
@@ -15,7 +25,7 @@ const Tutorial = {
                 1: { text: "What is Ultrasound?", details: "Human hearing operates between 20 and 20,000 Hertz. Ultrasound is simply sound waves that are above the hearing threshold. Diagnostic medical ultrasound typically uses frequencies ranging from one to twenty plus megahertz.\n\nTo begin, enter the Room PIN into your Smartphone to connect.", action: "connect" },
                 2: { text: "The Transducer as a Speaker", details: "The ultrasound machine works similarly to a speaker. It uses electrical energy to produce sound waves inside the transducer. Some of these sound waves reflect off of the patient's tissues and are transmitted back.\n\nPress the 'FIRE PULSE' button on your phone.", action: "fire_pulse" },
                 3: { text: "Forming the Image", details: "The transducer converts the returning sound waves back into electrical energy, which is processed to form a visual scan line on the monitor below.\n\nPress 'FIRE PULSE' again to observe the returning echoes drawing the scan lines.", action: "fire_pulse" },
-                4: { text: "Understanding Depth", details: "Depth is a function of distance to the ultrasound machine. The longer it takes a wave to return to the machine, the deeper it had to penetrate into the tissues, and the ultrasound machine knows to place those echoes deep in the scan line.\n\nClick Next to begin Module 2.", action: null } // No physical action required to proceed here
+                4: { text: "Understanding Depth", details: "Depth is a function of distance to the ultrasound machine. The longer it takes a wave to return to the machine, the deeper it had to penetrate into the tissues, and the ultrasound machine knows to place those echoes deep in the scan line.\n\nClick Next to begin Module 2.", action: null } 
             },
             totalSteps: 4
         },
@@ -32,15 +42,45 @@ const Tutorial = {
             title: "Module 3: Frequency vs Penetration",
             steps: {
                 1: { text: "The Core Trade-off", details: "Frequency is inversely proportional to wavelength. Higher frequencies improve resolution (a prettier picture) but cannot penetrate deeply into tissue.\n\nLook at the monitor. The top of the tissue is beautifully clear, but the bottom is entirely black. Click Next.", action: null },
-                2: { text: "Lowering the Frequency", details: "To see deeper structures, we must decrease the frequency. This allows sound to penetrate further, but sacrifices detail—much like how only low-frequency bass notes can be heard from a distant stadium concert.\n\nSlide the FREQUENCY on this computer down to 3.0 MHz to find the deep target.", action: "lower_frequency" }
+                2: { text: "Lowering the Frequency", details: "To see deeper structures, we must decrease the frequency. This allows sound to penetrate further, but sacrifices detail.\n\nSlide the FREQUENCY on this computer down to 3.0 MHz to find the deep target.", action: "lower_frequency" }
             },
             totalSteps: 2
+        },
+        4: {
+            title: "Module 4: Probe Manipulation",
+            steps: {
+                1: { 
+                    text: "Rocking (Heel-to-Toe)", 
+                    details: "Rocking involves angling the transducer along its long axis (tilting side-to-side).\n\nThere is a blood vessel deep in this tissue, but it is currently off-center to the left. Tilt your phone side-to-side (Rocking) to sweep the beam and find the circular vessel.<br><div class='diagram-container'><div class='diagram-phone diagram-rock'></div></div>", 
+                    action: "rock_center" 
+                },
+                2: { 
+                    text: "Rotating (Twisting)", 
+                    details: "Rotating involves twisting the transducer around its vertical axis. This changes your view from a transverse (cross-section) to a longitudinal (long-axis) view.\n\nTwist your phone 90 degrees to turn the circular vessel into a long, tubular highway.<br><div class='diagram-container'><div class='diagram-phone diagram-rotate'></div></div>", 
+                    action: "rotate_long" 
+                },
+                3: { 
+                    text: "Fanning (Sweeping)", 
+                    details: "Fanning involves angling the transducer along its short axis (tilting forward or backward).\n\nNow that you have a longitudinal view, tilt the top of the phone forward (Fanning) to angle the beam down the length of the vessel and find the bright white blood clot.<br><div class='diagram-container'><div class='diagram-phone diagram-fan'></div></div>", 
+                    action: "fan_clot" 
+                }
+            },
+            totalSteps: 3
         }
     },
 
-    init: function() { this.updateHUD(); },
+    init: function() { 
+        this.updateHUD(); 
+    },
 
     updateHUD: function() {
+        // --- NEW FAILSAFE ---
+        // If the 3D module on screen doesn't match the text module, force a reload!
+        if (this.lastLoadedModule !== this.currentModule) {
+            this.loadGraphicsForCurrentModule();
+            this.lastLoadedModule = this.currentModule;
+        }
+
         const mod = this.syllabus[this.currentModule];
         if (!mod) return;
         
@@ -101,8 +141,7 @@ const Tutorial = {
             if (this.syllabus[this.currentModule + 1]) {
                 this.currentModule++;
                 this.currentStep = 1;
-                this.updateHUD();
-                this.loadGraphicsForCurrentModule();
+                this.updateHUD(); // This will now automatically trigger the 3D graphics change!
             }
         }
         this.syncPhone();
@@ -115,8 +154,7 @@ const Tutorial = {
         } else if (this.currentModule > 1) {
             this.currentModule--;
             this.currentStep = this.syllabus[this.currentModule].totalSteps;
-            this.updateHUD();
-            this.loadGraphicsForCurrentModule();
+            this.updateHUD(); // This will now automatically trigger the 3D graphics change!
         }
         this.syncPhone();
     },
@@ -125,6 +163,7 @@ const Tutorial = {
         if (this.currentModule === 1 && typeof loadModule1 === 'function') loadModule1(); 
         if (this.currentModule === 2 && typeof loadModule2 === 'function') loadModule2();
         if (this.currentModule === 3 && typeof loadModule3 === 'function') loadModule3();
+        if (this.currentModule === 4 && typeof loadModule4 === 'function') loadModule4(); 
     },
 
     syncPhone: function() {
@@ -165,7 +204,7 @@ peer.on('connection', conn => {
             if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
         }
         
-        // NEW: Unlocked Global IMU Routing!
+        // Unlocked Global IMU Routing
         if (data.orientation) {
             if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
             if (typeof window.updateGlobalIMU === 'function') {

@@ -26,31 +26,66 @@ document.getElementById('canvas-container-us').appendChild(rendererUS.domElement
 window.probeState = { fanAngle: 0, sweepX: 0 };
 let targetFan = 0;
 let targetSweep = 0;
-const imuQuat = new THREE.Quaternion();
-const degToRad = Math.PI / 180;
 
 window.updateGlobalIMU = function(imuData) {
     if (!imuData) return;
     
-    // THE FIX: Restored strict sanitization to prevent 'NaN' from deleting the 3D meshes!
+    // Fallbacks to prevent NaN crashes
+    let beta = (imuData.beta !== null && imuData.beta !== undefined) ? imuData.beta : 90;
+    let gamma = (imuData.gamma !== null && imuData.gamma !== undefined) ? imuData.gamma : 0;
+
+    // 1. SLIDING (Translation X) = Left/Right Wrist Tilt (Gamma)
+    // Gamma naturally rests at 0 when perfectly straight.
+    let clampedGamma = Math.max(-45, Math.min(45, gamma));
+    targetSweep = (clampedGamma / 45) * 0.8; 
+
+    // 2. FANNING (Rotation Z) = Forward/Backward Wrist Tilt (Beta)
+    // Holding a phone upright means Beta naturally rests at 90 degrees.
+    let betaOffset = beta - 90; 
+    let clampedBeta = Math.max(-45, Math.min(45, betaOffset));
+    
+    // Convert to radians and flip the sign for intuitive visual angling
+    targetFan = -(clampedBeta * (Math.PI / 180)); 
+};
+
+// --- GLOBAL PROBE STATE (Full 3D Quaternion) ---
+window.probeState = {
+    targetQuat: new THREE.Quaternion(),
+    currentQuat: new THREE.Quaternion(),
+    baseAlpha: null // Used to calibrate "Forward"
+};
+const degToRad = Math.PI / 180;
+
+// THE FIX: We define a perfect -90 degree X-axis rotation Quaternion.
+// We apply this AFTER calculating the raw sensor math to prevent Gimbal Lock!
+const qOffset = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+
+window.updateGlobalIMU = function(imuData) {
+    if (!imuData) return;
+    
     let beta = (imuData.beta !== null && imuData.beta !== undefined) ? imuData.beta : 90;
     let alpha = (imuData.alpha !== null && imuData.alpha !== undefined) ? imuData.alpha : 0;
     let gamma = (imuData.gamma !== null && imuData.gamma !== undefined) ? imuData.gamma : 0;
 
-    const euler = new THREE.Euler(beta * degToRad, alpha * degToRad, -gamma * degToRad, 'YXZ');
-    imuQuat.setFromEuler(euler);
+    // Calibrate the compass so "straight ahead" is whatever direction you are facing
+    if (window.probeState.baseAlpha === null) window.probeState.baseAlpha = alpha;
+    let relAlpha = alpha - window.probeState.baseAlpha;
 
-    const bottomEdge = new THREE.Vector3(0, -1, 0);
-    bottomEdge.applyQuaternion(imuQuat);
+    // 1. Create the Euler using RAW device angles. 
+    // Because we removed the "- 90", pointing straight down (beta = 0) 
+    // now sits perfectly on the equator of the math sphere. Zero glitches!
+    const euler = new THREE.Euler(
+        beta * degToRad,
+        relAlpha * degToRad,
+        -gamma * degToRad,
+        'YXZ'
+    );
+    
+    // 2. Convert raw angles to Quaternion
+    window.probeState.targetQuat.setFromEuler(euler);
 
-    // Left/Right tilt (Roll) = Fanning
-    let calcFan = Math.atan2(bottomEdge.x, -bottomEdge.y);
-    // Extra safety: if the math fails, default to 0 instead of NaN
-    targetFan = isNaN(calcFan) ? 0 : Math.max(-0.78, Math.min(0.78, calcFan)); 
-
-    // Forward/Back tilt (Pitch) = Sweeping (Translation)
-    let calcSweep = bottomEdge.z * 1.5; 
-    targetSweep = isNaN(calcSweep) ? 0 : Math.max(-0.8, Math.min(0.8, calcSweep)); 
+    // 3. Multiply by the offset globally to visually orient the probe downwards
+    window.probeState.targetQuat.multiply(qOffset);
 };
 
 // ==========================================
@@ -64,19 +99,17 @@ window.loadModule1 = function() {
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
 
-    // Create a physical group for the probe that moves in 3D
     mod1Group = new THREE.Group();
+    // Plant the probe fixed on the surface!
     mod1Group.position.set(0, 1.2, 0);
     scene3D.add(mod1Group);
 
     const probe = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x888888}));
     mod1Group.add(probe);
 
-    // The pulse is attached to the probe so it shoots in the direction of the tilt!
     pulseMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.05), new THREE.MeshBasicMaterial({color: 0x44ff44, transparent: true, opacity: 0}));
     mod1Group.add(pulseMesh);
 
-    // Static Targets
     target1 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
     target1.position.set(0, 0.2, 0);
     scene3D.add(target1);
@@ -115,26 +148,24 @@ window.triggerPulseAnimation = function() {
 };
 
 // ==========================================
-// RENDER LOOP & PHYSICS LERP
+// RENDER LOOP & QUATERNION SLERP
 // ==========================================
 function animate() {
     requestAnimationFrame(animate);
 
-    // 1. GLOBAL PHYSICS LERP (Smooths motion for all modules)
-    window.probeState.fanAngle += (targetFan - window.probeState.fanAngle) * 0.1;
-    window.probeState.sweepX += (targetSweep - window.probeState.sweepX) * 0.1;
+    // 1. SPHERICAL LINEAR INTERPOLATION (SLERP)
+    // Smoothly glides the probe's 3D rotation to match the phone's hardware rotation 
+    window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.4);
 
     // 2. MODULE 1 SPECIFIC LOGIC
     if (Tutorial.currentModule === 1 && mod1Group) {
-        // Apply Global Physics to Mod 1 Probe
-        mod1Group.position.x = window.probeState.sweepX;
-        mod1Group.rotation.z = window.probeState.fanAngle;
+        // Apply Global Quaternion to Mod 1 Probe
+        mod1Group.quaternion.copy(window.probeState.currentQuat);
 
         if (pulse.active) {
             pulse.localY -= 0.04; 
             pulseMesh.position.y = pulse.localY;
 
-            // Get global position of the traveling pulse for collision detection
             let pulseWorld = new THREE.Vector3();
             pulseMesh.getWorldPosition(pulseWorld);
 
@@ -142,16 +173,14 @@ function animate() {
                 target1.material.color.setHex(0xffffff); 
                 echoes.push({ y: target1.position.y, id: 1, mesh: echoMesh1 });
                 echoMesh1.material.opacity = 0.8;
-                echoMesh1.position.x = target1.position.x;
-                echoMesh1.position.y = target1.position.y;
+                echoMesh1.position.copy(target1.position);
             } else { target1.material.color.setHex(0x2196f3); }
 
             if (pulseWorld.distanceTo(target2.position) < 0.2 && echoes.filter(e => e.id === 2).length === 0) {
                 target2.material.color.setHex(0xffffff); 
                 echoes.push({ y: target2.position.y, id: 2, mesh: echoMesh2 });
                 echoMesh2.material.opacity = 0.8;
-                echoMesh2.position.x = target2.position.x;
-                echoMesh2.position.y = target2.position.y;
+                echoMesh2.position.copy(target2.position);
             } else { target2.material.color.setHex(0x2196f3); }
 
             if (pulse.localY < -3.5) { pulse.active = false; pulseMesh.material.opacity = 0; } 
@@ -170,9 +199,10 @@ function animate() {
         }
     }
 
-    // Call Module 2/3 update loops if they exist
+    // Call Module loops if they exist
     if (typeof window.animateMod2 === 'function') window.animateMod2();
     if (typeof window.animateMod3 === 'function') window.animateMod3();
+    if (typeof window.animateMod4 === 'function') window.animateMod4(); // ADD THIS LINE
 
     renderer3D.render(scene3D, camera3D);
     rendererUS.render(sceneUS, cameraUS);
