@@ -14,14 +14,13 @@
         button { font-size: 20px; padding: 15px 40px; background-color: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); margin-bottom: 20px; }
         button:active { background-color: #2ea043; transform: scale(0.98); }
         
-        #fire-btn { background-color: #58a6ff; width: 220px; height: 220px; border-radius: 50%; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4); margin-top: 20px; }
+        #fire-btn { background-color: #58a6ff; width: 220px; height: 220px; border-radius: 50%; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4); margin-top: 40px; }
         #fire-btn:active { background-color: #79c0ff; box-shadow: 0 0 30px rgba(121, 192, 255, 0.8); }
-        #gyro-btn { background-color: #9b59b6; margin-top: 20px; }
+        #gyro-btn { background-color: #9b59b6; width: 100%; max-width: 300px;}
     </style>
 </head>
 <body>
 
-    <!-- SCREEN 1: LOGIN -->
     <div id="login-screen" class="screen">
         <h2>Enter Room PIN</h2>
         <input type="number" id="pin-input" placeholder="e.g. 1234">
@@ -29,19 +28,10 @@
         <div id="status" style="color: #8b949e; margin-top: 15px;">Waiting for PIN...</div>
     </div>
 
-    <!-- SCREEN 2: ACTIVE PROBE -->
     <div id="probe-screen" class="screen">
         <h2>Transducer Active</h2>
-        <div style="color: #44ff44; margin-bottom: 20px;">Connected to Console</div>
-        
-        <!-- Shown in Mod 1 -->
+        <button id="gyro-btn" onclick="startMotion()">1. ENABLE MOTION</button>
         <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
-        
-        <!-- Shown in Mod 2+ -->
-        <div id="gyro-container" style="display: none;">
-            <p style="color: #8b949e; margin-top: 20px;">To scan the patient, you must allow motion tracking.</p>
-            <button id="gyro-btn" onclick="startMotion()">ENABLE MOTION</button>
-        </div>
     </div>
 
     <script>
@@ -57,16 +47,10 @@
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('probe-screen').style.display = 'flex';
                 
-                // When the laptop clicks Next/Prev, it tells the phone which buttons to show!
                 conn.on('data', (data) => {
+                    // Hide the FIRE button when moving to Mod 2/3
                     if (data.command === 'sync_module') {
-                        if (data.module === 1) {
-                            document.getElementById('fire-btn').style.display = 'flex';
-                            document.getElementById('gyro-container').style.display = 'none';
-                        } else {
-                            document.getElementById('fire-btn').style.display = 'none';
-                            document.getElementById('gyro-container').style.display = 'block';
-                        }
+                        document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
                     }
                 });
             });
@@ -91,7 +75,9 @@
         }
 
         function handleOrientation(event) {
-            if (conn && conn.open) conn.send({ orientation: { gamma: event.gamma } });
+            if (conn && conn.open) {
+                conn.send({ orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } });
+            }
         }
     </script>
 </body>

@@ -1,5 +1,5 @@
 // ==========================================
-// GRAPHICS ENGINE (The Scene Manager)
+// GRAPHICS ENGINE & GLOBAL IMU
 // ==========================================
 const container3D = document.getElementById('spatial-view');
 let viewportWidth = container3D.clientWidth;
@@ -22,35 +22,68 @@ const rendererUS = new THREE.WebGLRenderer({ antialias: true });
 rendererUS.setSize(viewportWidth, viewportHeight);
 document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
 
+// --- GLOBAL PROBE STATE (Accessible by all modules) ---
+window.probeState = { fanAngle: 0, sweepX: 0 };
+let targetFan = 0;
+let targetSweep = 0;
+const imuQuat = new THREE.Quaternion();
+const degToRad = Math.PI / 180;
+
+window.updateGlobalIMU = function(imuData) {
+    if (!imuData) return;
+    
+    // THE FIX: Restored strict sanitization to prevent 'NaN' from deleting the 3D meshes!
+    let beta = (imuData.beta !== null && imuData.beta !== undefined) ? imuData.beta : 90;
+    let alpha = (imuData.alpha !== null && imuData.alpha !== undefined) ? imuData.alpha : 0;
+    let gamma = (imuData.gamma !== null && imuData.gamma !== undefined) ? imuData.gamma : 0;
+
+    const euler = new THREE.Euler(beta * degToRad, alpha * degToRad, -gamma * degToRad, 'YXZ');
+    imuQuat.setFromEuler(euler);
+
+    const bottomEdge = new THREE.Vector3(0, -1, 0);
+    bottomEdge.applyQuaternion(imuQuat);
+
+    // Left/Right tilt (Roll) = Fanning
+    let calcFan = Math.atan2(bottomEdge.x, -bottomEdge.y);
+    // Extra safety: if the math fails, default to 0 instead of NaN
+    targetFan = isNaN(calcFan) ? 0 : Math.max(-0.78, Math.min(0.78, calcFan)); 
+
+    // Forward/Back tilt (Pitch) = Sweeping (Translation)
+    let calcSweep = bottomEdge.z * 1.5; 
+    targetSweep = isNaN(calcSweep) ? 0 : Math.max(-0.8, Math.min(0.8, calcSweep)); 
+};
+
 // ==========================================
 // MODULE 1: THE PULSE-ECHO PRINCIPLE
 // ==========================================
-
-// Global variable declarations for animation tracking
-let target1, target2, pulseMesh, echoMesh1, echoMesh2, scanDot1, scanDot2;
-let pulse = { active: false, y: 1.5 };
+let mod1Group, target1, target2, pulseMesh, echoMesh1, echoMesh2, scanDot1, scanDot2;
+let pulse = { active: false, localY: -0.5 };
 let echoes = []; 
 
 window.loadModule1 = function() {
-    // 1. CLEAR ANY PREVIOUS MODULES
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
 
-    // 2. REBUILD MODULE 1 SCENE
-    const probe = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x888888}));
-    probe.position.y = 1.5;
-    scene3D.add(probe);
+    // Create a physical group for the probe that moves in 3D
+    mod1Group = new THREE.Group();
+    mod1Group.position.set(0, 1.2, 0);
+    scene3D.add(mod1Group);
 
-    target1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
-    target1.position.y = 0.5;
+    const probe = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x888888}));
+    mod1Group.add(probe);
+
+    // The pulse is attached to the probe so it shoots in the direction of the tilt!
+    pulseMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.05), new THREE.MeshBasicMaterial({color: 0x44ff44, transparent: true, opacity: 0}));
+    mod1Group.add(pulseMesh);
+
+    // Static Targets
+    target1 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
+    target1.position.set(0, 0.2, 0);
     scene3D.add(target1);
 
-    target2 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
-    target2.position.y = -1.0;
+    target2 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({color: 0x2196f3}));
+    target2.position.set(0, -1.0, 0);
     scene3D.add(target2);
-
-    pulseMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.05), new THREE.MeshBasicMaterial({color: 0x44ff44, transparent: true, opacity: 0}));
-    scene3D.add(pulseMesh);
 
     echoMesh1 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.02), new THREE.MeshBasicMaterial({color: 0x58a6ff, transparent: true, opacity: 0}));
     echoMesh2 = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.02), new THREE.MeshBasicMaterial({color: 0x58a6ff, transparent: true, opacity: 0}));
@@ -65,18 +98,16 @@ window.loadModule1 = function() {
     scanDot2.position.set(0, -0.7, 0); 
     sceneUS.add(scanDot2);
 
-    // Reset Animation state
-    pulse = { active: false, y: 1.5 };
+    pulse = { active: false, localY: -0.5 };
     echoes = [];
 };
 
-// Start by loading Mod 1 when the page boots up
 loadModule1();
 
 window.triggerPulseAnimation = function() {
     if (pulse.active) return;
     pulse.active = true;
-    pulse.y = 1.3; 
+    pulse.localY = -0.6; 
     pulseMesh.material.opacity = 0.8;
     scanDot1.material.opacity = 0;
     scanDot2.material.opacity = 0;
@@ -84,40 +115,53 @@ window.triggerPulseAnimation = function() {
 };
 
 // ==========================================
-// RENDER LOOP & RESIZING
+// RENDER LOOP & PHYSICS LERP
 // ==========================================
 function animate() {
     requestAnimationFrame(animate);
 
-    // Only run this specific animation if Module 1's assets are currently loaded
-    if (Tutorial.currentModule === 1 && pulse.active && target1 && target2) {
-        pulse.y -= 0.04; 
-        pulseMesh.position.y = pulse.y;
+    // 1. GLOBAL PHYSICS LERP (Smooths motion for all modules)
+    window.probeState.fanAngle += (targetFan - window.probeState.fanAngle) * 0.1;
+    window.probeState.sweepX += (targetSweep - window.probeState.sweepX) * 0.1;
 
-        if (Math.abs(pulse.y - target1.position.y) < 0.02 && echoes.filter(e => e.id === 1).length === 0) {
-            target1.material.color.setHex(0xffffff); 
-            echoes.push({ y: target1.position.y, id: 1, mesh: echoMesh1 });
-            echoMesh1.material.opacity = 0.8;
-            echoMesh1.position.y = target1.position.y;
-        } else { target1.material.color.setHex(0x2196f3); }
+    // 2. MODULE 1 SPECIFIC LOGIC
+    if (Tutorial.currentModule === 1 && mod1Group) {
+        // Apply Global Physics to Mod 1 Probe
+        mod1Group.position.x = window.probeState.sweepX;
+        mod1Group.rotation.z = window.probeState.fanAngle;
 
-        if (Math.abs(pulse.y - target2.position.y) < 0.02 && echoes.filter(e => e.id === 2).length === 0) {
-            target2.material.color.setHex(0xffffff); 
-            echoes.push({ y: target2.position.y, id: 2, mesh: echoMesh2 });
-            echoMesh2.material.opacity = 0.8;
-            echoMesh2.position.y = target2.position.y;
-        } else { target2.material.color.setHex(0x2196f3); }
+        if (pulse.active) {
+            pulse.localY -= 0.04; 
+            pulseMesh.position.y = pulse.localY;
 
-        if (pulse.y < -2.5) { pulse.active = false; pulseMesh.material.opacity = 0; } 
-    }
+            // Get global position of the traveling pulse for collision detection
+            let pulseWorld = new THREE.Vector3();
+            pulseMesh.getWorldPosition(pulseWorld);
 
-    if (Tutorial.currentModule === 1) {
+            if (pulseWorld.distanceTo(target1.position) < 0.2 && echoes.filter(e => e.id === 1).length === 0) {
+                target1.material.color.setHex(0xffffff); 
+                echoes.push({ y: target1.position.y, id: 1, mesh: echoMesh1 });
+                echoMesh1.material.opacity = 0.8;
+                echoMesh1.position.x = target1.position.x;
+                echoMesh1.position.y = target1.position.y;
+            } else { target1.material.color.setHex(0x2196f3); }
+
+            if (pulseWorld.distanceTo(target2.position) < 0.2 && echoes.filter(e => e.id === 2).length === 0) {
+                target2.material.color.setHex(0xffffff); 
+                echoes.push({ y: target2.position.y, id: 2, mesh: echoMesh2 });
+                echoMesh2.material.opacity = 0.8;
+                echoMesh2.position.x = target2.position.x;
+                echoMesh2.position.y = target2.position.y;
+            } else { target2.material.color.setHex(0x2196f3); }
+
+            if (pulse.localY < -3.5) { pulse.active = false; pulseMesh.material.opacity = 0; } 
+        }
+
         for(let i = echoes.length - 1; i >= 0; i--) {
             let echo = echoes[i];
             echo.y += 0.04; 
             echo.mesh.position.y = echo.y;
-
-            if (echo.y >= 1.3) {
+            if (echo.y >= 1.0) {
                 echo.mesh.material.opacity = 0; 
                 if (echo.id === 1) scanDot1.material.opacity = 1.0;
                 if (echo.id === 2) scanDot2.material.opacity = 1.0;
@@ -126,6 +170,10 @@ function animate() {
         }
     }
 
+    // Call Module 2/3 update loops if they exist
+    if (typeof window.animateMod2 === 'function') window.animateMod2();
+    if (typeof window.animateMod3 === 'function') window.animateMod3();
+
     renderer3D.render(scene3D, camera3D);
     rendererUS.render(sceneUS, cameraUS);
 }
@@ -133,17 +181,13 @@ function animate() {
 window.addEventListener('resize', () => {
     viewportWidth = container3D.clientWidth;
     viewportHeight = container3D.clientHeight;
-    
     renderer3D.setSize(viewportWidth, viewportHeight);
     camera3D.aspect = viewportWidth / viewportHeight;
     camera3D.updateProjectionMatrix();
-    
     rendererUS.setSize(viewportWidth, viewportHeight);
     const aspectUS = viewportWidth / viewportHeight;
     cameraUS.left = -aspectUS;
     cameraUS.right = aspectUS;
-    cameraUS.top = 1;
-    cameraUS.bottom = -1;
     cameraUS.updateProjectionMatrix();
 });
 

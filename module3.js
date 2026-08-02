@@ -2,8 +2,10 @@
 // MODULE 3: FREQUENCY VS PENETRATION
 // ==========================================
 
+let mod3ProbePlane, mod3UsMaterial;
+
 window.loadModule3 = function() {
-    console.log("Loading Module 3...");
+    console.log("Loading Module 3 (Global Physics)...");
 
     // 1. CLEAR PREVIOUS MODULE
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
@@ -17,10 +19,27 @@ window.loadModule3 = function() {
     phantomBox.position.y = -0.5;
     scene3D.add(phantomBox);
 
-    const probePlane = new THREE.Group();
-    probePlane.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.2), new THREE.MeshBasicMaterial({ color: 0x888888 })));
-    probePlane.position.set(0, 1.2, 0); 
-    scene3D.add(probePlane);
+    // 3D Probe Assembly
+    mod3ProbePlane = new THREE.Group();
+    
+    const planeGeo = new THREE.PlaneGeometry(2, 2);
+    planeGeo.translate(0, -1, 0); 
+    mod3ProbePlane.add(new THREE.Mesh(
+        planeGeo, 
+        new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })
+    ));
+    
+    const handleGeo = new THREE.BoxGeometry(0.8, 1.5, 0.2); 
+    handleGeo.translate(0, 0.75, 0);
+    mod3ProbePlane.add(new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0x888888 })));
+
+    // Blue Orientation Marker
+    const markerMesh = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshBasicMaterial({ color: 0x58a6ff }));
+    markerMesh.position.set(-0.4, 0.75, 0.15); 
+    mod3ProbePlane.add(markerMesh);
+
+    mod3ProbePlane.position.set(0, 1.0, 0); 
+    scene3D.add(mod3ProbePlane);
 
     // 3. GENERATE TISSUE WITH A DEEP HIDDEN TARGET
     const size = 64; 
@@ -49,14 +68,15 @@ window.loadModule3 = function() {
     const texture3D = new THREE.DataTexture3D(volumeData, size, size, size);
     texture3D.format = THREE.RedFormat;
     texture3D.type = THREE.UnsignedByteType;
+    texture3D.minFilter = texture3D.magFilter = THREE.LinearFilter;
     texture3D.needsUpdate = true;
 
-    // 4. THE PHYSICS SHADER (Dynamic Attenuation & Resolution)
-    const usMaterial = new THREE.ShaderMaterial({
+    // 4. THE PHYSICS SHADER (Cone Shape + Dynamic Attenuation/Resolution)
+    mod3UsMaterial = new THREE.ShaderMaterial({
         uniforms: { 
             u_volume: { value: texture3D }, 
             u_matrix: { value: new THREE.Matrix4() },
-            u_frequency: { value: 12.0 } // Starts at 12 MHz (High detail, bad penetration)
+            u_frequency: { value: 12.0 } // Starts at 12 MHz
         },
         vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
         fragmentShader: `
@@ -72,24 +92,29 @@ window.loadModule3 = function() {
             void main() {
                 vec2 center = vec2(0.5, 1.0); 
                 float dist = distance(vUv, center);
-                if (dist > 0.9 || dist < 0.1 || vUv.y > 0.9) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
+                vec2 dir = vUv - center; 
+                float angle = atan(dir.x, -dir.y);
                 
+                // Cone Mask
+                if (abs(angle) > 0.5 || dist > 0.9 || dist < 0.05) { 
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; 
+                }
+                
+                // Taller mapping to reach the deep tissue block
                 vec4 worldPos = u_matrix * vec4((vUv.x * 2.0) - 1.0, (vUv.y * 3.0) - 2.5, 0.0, 1.0);
                 vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
                 
-                if (texCoord.x < 0.0 || texCoord.x > 1.0 || texCoord.y < 0.0 || texCoord.y > 1.0) {
+                if (texCoord.x < 0.0 || texCoord.x > 1.0 || texCoord.y < 0.0 || texCoord.y > 1.0 || texCoord.z < 0.0 || texCoord.z > 1.0) {
                     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return;
                 }
                 
                 float density = texture(u_volume, texCoord).r;
                 
                 // PHYSICS: PENETRATION (Attenuation based on frequency)
-                // 12 MHz stops at dist 0.4. 3 MHz reaches dist 0.9.
                 float maxDepth = 1.0 - (u_frequency / 15.0); 
                 float attenuation = smoothstep(maxDepth + 0.2, maxDepth - 0.1, dist);
                 
                 // PHYSICS: RESOLUTION (Blur/Noise based on frequency)
-                // Low frequency = high blur/grain
                 float blurAmount = (12.0 - u_frequency) * 0.05;
                 float speckle = random(vUv * (100.0 - (blurAmount * 500.0))) * 0.3;
                 
@@ -98,11 +123,24 @@ window.loadModule3 = function() {
             }
         `
     });
-    sceneUS.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial));
+    sceneUS.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mod3UsMaterial));
+};
 
-    // Expose control to the phone
-    window.updateMod3Freq = function(freq) {
-        usMaterial.uniforms.u_frequency.value = parseFloat(freq);
-        document.querySelector('.top-right').innerHTML = `Probe: Curvilinear<br>Freq: ${parseFloat(freq).toFixed(1)} MHz`;
-    };
+// 5. GLOBAL PHYSICS RENDER LOOP HOOK
+window.animateMod3 = function() {
+    if (Tutorial.currentModule === 3 && mod3ProbePlane) {
+        // Apply Both Sliding (X) and Fanning (Rot Z) from the Global Engine!
+        mod3ProbePlane.position.x = window.probeState.sweepX;
+        mod3ProbePlane.rotation.z = window.probeState.fanAngle;
+        mod3ProbePlane.updateMatrixWorld();
+        mod3UsMaterial.uniforms.u_matrix.value.copy(mod3ProbePlane.matrixWorld);
+    }
+};
+
+// 6. LAPTOP UI EXPOSURE
+window.updateMod3Freq = function(freq) {
+    if (mod3UsMaterial) {
+        mod3UsMaterial.uniforms.u_frequency.value = parseFloat(freq);
+    }
+    document.querySelector('.top-right').innerHTML = `Probe: Curvilinear<br>Freq: ${parseFloat(freq).toFixed(1)} MHz`;
 };

@@ -22,11 +22,11 @@ const Tutorial = {
         2: {
             title: "Module 2: Echogenicity",
             steps: {
-                1: { text: "Understanding Brightness", details: "Brightness is the volume, or the intensity, of the returning echo. The louder the returning echo, the brighter it will appear. The quieter the returning echo, the less bright it will appear.\n\nEnable Motion on your phone, then tilt it to sweep the probe.", action: "sweep_start" },
-                2: { text: "Anechoic Tissues (Fluid)", details: "Tilt your phone LEFT to find the black circular shape. This is an 'Anechoic' structure, like a fluid-filled cyst. Sound passes completely through fluid without reflecting back, resulting in zero amplitude (pitch black).", action: "find_fluid" },
-                3: { text: "Hyperechoic Tissues (Bone)", details: "Now tilt your phone RIGHT to find the solid white block. This is a 'Hyperechoic' structure, like bone. Dense objects reflect almost all sound waves back immediately, creating a massive amplitude (bright white).", action: "find_bone" }
+                1: { text: "Understanding Brightness", details: "Brightness is the volume, or the intensity, of the returning echo. The louder the returning echo, the brighter it will appear. The quieter the returning echo, the less bright it will appear.\n\nImagine the BOTTOM of your phone is the transducer face making contact with the patient. Enable Motion on your phone.", action: "sweep_start" },
+                2: { text: "Anechoic Tissues (Fluid)", details: "Using the bottom of your phone as the pivot point, fan the bottom edge LEFT to angle your beam toward the black circular shape. This is an 'Anechoic' structure, like a fluid-filled cyst. Sound passes completely through fluid without reflecting back.", action: "find_fluid" },
+                3: { text: "Hyperechoic Tissues (Bone)", details: "Now fan the bottom of your phone RIGHT to find the solid white block. This is a 'Hyperechoic' structure, like bone. Dense objects reflect almost all sound waves back immediately, creating a massive amplitude (bright white).", action: "find_bone" }
             },
-            totalSteps: 3
+            totalSteps: 3   
         },
         3: {
             title: "Module 3: Frequency vs Penetration",
@@ -164,10 +164,12 @@ peer.on('connection', conn => {
             Tutorial.evaluateAction('fire_pulse');
             if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
         }
-        if (data.orientation && data.orientation.gamma !== undefined) {
-            if (Tutorial.currentModule === 2 && typeof updateMod2Probe === 'function') {
-                Tutorial.evaluateAction('sweep_start'); 
-                updateMod2Probe(data.orientation.gamma);
+        
+        // NEW: Unlocked Global IMU Routing!
+        if (data.orientation) {
+            if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
+            if (typeof window.updateGlobalIMU === 'function') {
+                window.updateGlobalIMU(data.orientation);
             }
         }
     });
