@@ -128,10 +128,14 @@ window.loadModule2 = function() {
     });
     sceneUS.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), usMaterial));
 
-    // 5. ATTACH TO GLOBAL ENGINE SO PHONE CAN SLIDE PROBE
-    window.updateMod2Probe = function(slideAmount) {
-        // Map slider (0 to 100) to probe X position (-0.8 to 0.8)
-        let newX = ((slideAmount / 100) * 1.6) - 0.8;
+    // 5. ATTACH TO GLOBAL ENGINE SO GYROSCOPE CAN SLIDE PROBE
+    window.updateMod2Probe = function(gamma) {
+        // Gamma is usually between -90 (left tilt) and 90 (right tilt).
+        // Let's clamp it to -45 and +45 so the user doesn't have to snap their wrist.
+        let clampedGamma = Math.max(-45, Math.min(45, gamma));
+        
+        // Map the -45/+45 degree tilt to -0.8/+0.8 3D space coordinates
+        let newX = (clampedGamma / 45) * 0.8;
         
         probePlane.position.x = newX;
         probePlane.updateMatrixWorld();

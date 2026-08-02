@@ -2,7 +2,7 @@
 // THE TUTORIAL ENGINE (Expanded Curriculum)
 // ==========================================
 
-let activeConnection = null; // Store the connection so the laptop can talk to the phone
+let activeConnection = null; 
 
 const Tutorial = {
     currentModule: 1,
@@ -31,16 +31,8 @@ const Tutorial = {
         3: {
             title: "Module 3: Frequency & Penetration",
             steps: {
-                1: { 
-                    text: "The Core Trade-off", 
-                    details: "Frequency is inversely proportional to wavelength[cite: 1]. Higher frequencies improve resolution (a prettier picture) but cannot penetrate deeply into tissue[cite: 1].\n\nLook at the monitor. The top of the tissue is beautifully clear, but the bottom is entirely black. Press NEXT on your phone.", 
-                    action: "start_mod_3" 
-                },
-                2: { 
-                    text: "Lowering the Frequency", 
-                    details: "To see deeper structures, we must decrease the frequency[cite: 1]. This allows sound to penetrate further, but sacrifices detail—much like how only low-frequency bass notes can be heard from a distant stadium concert[cite: 1].\n\nSlide the FREQUENCY on your phone down to 3.0 MHz to find the deep target.", 
-                    action: "lower_frequency" 
-                }
+                1: { text: "The Core Trade-off", details: "Frequency is inversely proportional to wavelength. Higher frequencies improve resolution (a prettier picture) but cannot penetrate deeply into tissue.\n\nLook at the monitor. The top of the tissue is beautifully clear, but the bottom is entirely black. Press NEXT on your phone.", action: "start_mod_3" },
+                2: { text: "Lowering the Frequency", details: "To see deeper structures, we must decrease the frequency. This allows sound to penetrate further, but sacrifices detail—much like how only low-frequency bass notes can be heard from a distant stadium concert.\n\nSlide the FREQUENCY on your phone down to 3.0 MHz to find the deep target.", action: "lower_frequency" }
             },
             totalSteps: 2
         }
@@ -56,50 +48,74 @@ const Tutorial = {
         document.getElementById('step-count').innerText = this.currentStep;
         document.getElementById('hud-instructions').innerText = mod.steps[this.currentStep].text;
         document.getElementById('edu-details').innerHTML = mod.steps[this.currentStep].details.replace(/\n/g, '<br>');
+
+        // Update Desktop Button States (Disable Previous on Step 1, Disable Next on last step)
+        document.getElementById('btn-prev').disabled = (this.currentModule === 1 && this.currentStep === 1);
+        const isLastModule = !this.syllabus[this.currentModule + 1];
+        const isLastStep = this.currentStep === mod.totalSteps;
+        document.getElementById('btn-next').disabled = (isLastModule && isLastStep);
     },
 
     evaluateAction: function(actionType) {
         const mod = this.syllabus[this.currentModule];
         if (!mod) return;
-        
         if (actionType === mod.steps[this.currentStep].action) {
-            this.advanceStep();
+            this.goForward();
         }
     },
 
-    advanceStep: function() {
+    // NEW: Laptop Controls
+    goForward: function() {
         const mod = this.syllabus[this.currentModule];
-        
         if (this.currentStep < mod.totalSteps) {
             this.currentStep++;
             this.updateHUD();
-            
-            // NEW: If we reached Step 4, tell the phone to reveal the "Start Module 2" button!
-            if (this.currentModule === 1 && this.currentStep === 4) {
-                if (activeConnection) activeConnection.send({ command: 'unlock_mod2' });
-            }
-        // Inside advanceStep: function() { ... }
-    // Replace the end of the function with this:
         } else {
-            this.currentModule++;
-            this.currentStep = 1;
-            if (this.syllabus[this.currentModule]) {
+            if (this.syllabus[this.currentModule + 1]) {
+                this.currentModule++;
+                this.currentStep = 1;
                 this.updateHUD();
-                if (this.currentModule === 2 && typeof loadModule2 === 'function') loadModule2(); 
-                if (this.currentModule === 3 && typeof loadModule3 === 'function') loadModule3(); 
+                this.loadGraphicsForCurrentModule();
             }
-            // Tell the phone to unlock the next module's UI
-            if (activeConnection) activeConnection.send({ command: `unlock_mod${this.currentModule}` });
         }
+        this.syncPhone(); // Tell the phone we moved!
+    },
 
-
-    // Inside conn.on('data', data => { ... })
-    // Add these listeners at the bottom of the data checks:
-        if (data.action === 'start_mod_3') Tutorial.evaluateAction('start_mod_3');
-        if (data.frequency !== undefined && typeof updateMod3Freq === 'function') {
-            updateMod3Freq(data.frequency);
-            if (data.frequency <= 4.0) Tutorial.evaluateAction('lower_frequency');
+    goBack: function() {
+        if (this.currentStep > 1) {
+            this.currentStep--;
+            this.updateHUD();
+        } else if (this.currentModule > 1) {
+            this.currentModule--;
+            this.currentStep = this.syllabus[this.currentModule].totalSteps;
+            this.updateHUD();
+            this.loadGraphicsForCurrentModule();
         }
+        this.syncPhone(); // Tell the phone we moved!
+    },
+
+    loadGraphicsForCurrentModule: function() {
+        // We will update graphics.js shortly to handle going backwards to Module 1!
+        if (this.currentModule === 1 && typeof loadModule1 === 'function') loadModule1(); 
+        if (this.currentModule === 2 && typeof loadModule2 === 'function') loadModule2();
+        if (this.currentModule === 3 && typeof loadModule3 === 'function') loadModule3();
+    },
+
+    syncPhone: function() {
+        if (activeConnection) {
+            // Unlock next module buttons if sitting on the final step of a module
+            if (this.currentModule === 1 && this.currentStep === 4) activeConnection.send({ command: 'unlock_mod2' });
+            
+            // Force the phone to jump to the matching module screen
+            activeConnection.send({ command: 'sync_module', module: this.currentModule });
+        }
+    },
+
+    setFrequency: function(val) {
+        // This fires when the user slides the knob on the laptop
+        document.getElementById('freq-val').innerText = parseFloat(val).toFixed(1);
+        if (typeof updateMod3Freq === 'function') updateMod3Freq(val);
+        if (val <= 4.0) this.evaluateAction('lower_frequency');
     }
 };
 
@@ -115,12 +131,10 @@ window.onload = () => {
 };
 
 peer.on('connection', conn => {
-    activeConnection = conn; // Save the connection globally
-    
+    activeConnection = conn; 
     document.getElementById('status').innerText = 'PROBE CONNECTED';
     document.getElementById('status').style.color = '#44ff44';
     document.getElementById('room-display').style.display = 'none'; 
-    
     Tutorial.evaluateAction('connect');
 
     conn.on('data', data => {
@@ -128,12 +142,13 @@ peer.on('connection', conn => {
             Tutorial.evaluateAction('fire_pulse');
             if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
         }
-        if (data.action === 'start_mod_2') {
-            Tutorial.evaluateAction('start_mod_2');
-        }
-        if (data.sweep !== undefined) {
-            Tutorial.evaluateAction('sweep_start');
-            if (typeof updateMod2Probe === 'function') updateMod2Probe(data.sweep);
+        
+        // NEW: Translating Phone Gyroscope (Tilt) into Probe Sweeping!
+        if (data.orientation && data.orientation.gamma !== undefined) {
+            if (Tutorial.currentModule === 2 && typeof updateMod2Probe === 'function') {
+                Tutorial.evaluateAction('sweep_start'); // They successfully started moving it
+                updateMod2Probe(data.orientation.gamma);
+            }
         }
     });
 });

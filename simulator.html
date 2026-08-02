@@ -6,7 +6,6 @@
     <title>Ultrasound 101: Interactive Curriculum</title>
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Core Libraries -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
@@ -26,36 +25,46 @@
                 <div id="edu-details" class="clinical-text">Connecting to simulation engine...</div>
             </div>
             
+            <!-- NEW: DESKTOP NAVIGATION CONTROLS -->
+            <div class="edu-controls">
+                <button id="btn-prev" class="nav-btn" onclick="Tutorial.goBack()">&#8592; Previous</button>
+                <button id="btn-next" class="nav-btn" onclick="Tutorial.goForward()">Next &#8594;</button>
+            </div>
+
             <div class="edu-footer">
                 <span id="status" style="color: #ffcc00; font-weight: bold;">Initializing Network...</span>
                 <span id="room-display" style="font-size: 24px; color: #fff; font-weight: bold; display: block; margin-top: 10px;"></span>
             </div>
         </div>
 
-        <!-- RIGHT PANEL: The Simulation Deck (Stacked) -->
+        <!-- RIGHT PANEL: The Simulation Deck -->
+        <!-- RIGHT PANEL: The Simulation Deck -->
         <div id="simulation-panel">
-            
-            <!-- Top Half: 3D Spatial World -->
             <div id="spatial-view" class="sim-viewport">
                 <div class="hud-text top-left"><h3>SPATIAL VIEW (3D)</h3></div>
                 <div id="canvas-container-3d"></div>
             </div>
-
-            <!-- Bottom Half: 2D Ultrasound Monitor -->
             <div id="us-monitor" class="sim-viewport">
                 <div class="hud-text top-left">SIM-CLINIC<br>MI: 0.9 TIS: 0.2</div>
                 <div class="screen-marker"></div>
                 <div class="hud-text top-right">Probe: Linear<br>Freq: 10.0 MHz</div>
                 <div id="canvas-container-us"></div>
             </div>
-
+            
+            <!-- NEW: THE MACHINE KNOBOLOGY CONSOLE -->
+            <div id="clinical-console">
+                <div class="console-group" id="console-freq" style="opacity: 0; pointer-events: none;">
+                    <label>FREQUENCY <span id="freq-val" style="color: #58a6ff;">12.0</span> MHz</label>
+                    <input type="range" id="freq-slider" min="3.0" max="12.0" step="0.5" value="12.0" oninput="Tutorial.setFrequency(this.value)" style="direction: rtl;">
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Application Logic -->
     <script src="graphics.js"></script>
     <script src="module2.js"></script>
-    <script src="module3.js"></script> <!-- ADD THIS LINE -->
+    <script src="module3.js"></script>
     <script src="app.js"></script>
 
 </body>

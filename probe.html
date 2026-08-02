@@ -7,124 +7,44 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body {
-            background-color: #0d1117;
-            color: #ffffff;
-            font-family: -apple-system, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
+            background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; overflow: hidden;
         }
-
-        #login-screen, #controller-screen, #mod2-screen, #mod3-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            padding: 20px;
-        }
-
-        #controller-screen, #mod2-screen, #mod3-screen {
-            display: none; /* Hidden until unlocked */
-        }
-
-        h2 { color: #58a6ff; letter-spacing: 2px; text-transform: uppercase; }
+        .screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; text-align: center;}
+        #login-screen { display: flex; }
         
-        input[type="number"] {
-            font-size: 24px;
-            padding: 15px;
-            width: 200px;
-            text-align: center;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            border: 2px solid #30363d;
-            background: #161b22;
-            color: white;
-        }
-
-        button {
-            font-size: 20px;
-            padding: 15px 40px;
-            background-color: #238636;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);
-        }
-
+        h2 { color: #58a6ff; letter-spacing: 2px; text-transform: uppercase; }
+        input[type="number"] { font-size: 24px; padding: 15px; width: 200px; text-align: center; margin-bottom: 20px; border-radius: 8px; border: 2px solid #30363d; background: #161b22; color: white; }
+        button { font-size: 20px; padding: 15px 40px; background-color: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); margin-bottom: 20px; }
         button:active { background-color: #2ea043; transform: scale(0.98); }
-
-        #status { margin-top: 20px; font-size: 16px; color: #8b949e; }
-
-        /* The Big "Fire" Button for Level 1 */
-        #fire-btn {
-            background-color: #58a6ff;
-            box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4);
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            font-size: 26px;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #fire-btn:active {
-            background-color: #79c0ff;
-            box-shadow: 0 0 30px rgba(121, 192, 255, 0.8);
-        }
-
-        /* Range Sliders */
-        input[type="range"] {
-            accent-color: #58a6ff;
-        }
+        
+        #fire-btn { background-color: #58a6ff; width: 220px; height: 220px; border-radius: 50%; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4); margin-top: 20px; }
+        #fire-btn:active { background-color: #79c0ff; box-shadow: 0 0 30px rgba(121, 192, 255, 0.8); }
+        #gyro-btn { background-color: #9b59b6; }
     </style>
 </head>
 <body>
 
     <!-- SCREEN 1: LOGIN -->
-    <div id="login-screen">
+    <div id="login-screen" class="screen">
         <h2>Enter Room PIN</h2>
         <input type="number" id="pin-input" placeholder="e.g. 1234">
         <button onclick="connectToSim()">CONNECT</button>
-        <div id="status">Waiting for PIN...</div>
+        <div id="status" style="color: #8b949e; margin-top: 15px;">Waiting for PIN...</div>
     </div>
 
-    <!-- SCREEN 2: MODULE 1 CONTROLS -->
-    <div id="controller-screen">
-        <h2>Module 1</h2>
+    <!-- SCREEN 2: ACTIVE PROBE (Motion + Trigger) -->
+    <div id="probe-screen" class="screen">
+        <h2>Transducer Active</h2>
         <div style="color: #44ff44; margin-bottom: 20px;">Connected to Simulator</div>
+        
+        <!-- Module 1 Trigger -->
         <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
         
-        <!-- Appears automatically when Level 1 ends -->
-        <button id="next-mod-btn" style="display: none; background: #9b59b6; margin-top: 20px;" onclick="startMod2()">START MODULE 2</button>
-    </div>
-
-    <!-- SCREEN 3: MODULE 2 CONTROLS -->
-    <div id="mod2-screen">
-        <h2>Module 2: Scan</h2>
-        <p style="color: #8b949e; text-align: center;">Use the slider to sweep the transducer left and right across the patient.</p>
-        
-        <input type="range" id="sweep-slider" min="0" max="100" value="50" style="width: 80%; height: 40px; margin-top: 40px;" oninput="sendSweep(this.value)">
-        
-        <!-- Appears automatically when Level 2 ends -->
-        <button id="next-mod3-btn" style="display: none; background: #9b59b6; margin-top: 40px;" onclick="startMod3()">START MODULE 3</button>
-    </div>
-
-    <!-- SCREEN 4: MODULE 3 CONTROLS -->
-    <div id="mod3-screen">
-        <h2>Module 3: Physics</h2>
-        <p style="color: #8b949e; text-align: center;">Lower the frequency to penetrate deeper into the tissue.</p>
-        
-        <div style="margin-top: 30px; font-size: 20px; color: #58a6ff;">Frequency: <span id="freq-val">12.0</span> MHz</div>
-        <!-- Note: The slider goes backwards (from 12 down to 3) -->
-        <input type="range" id="freq-slider" min="3.0" max="12.0" step="0.5" value="12.0" style="width: 80%; height: 40px; margin-top: 10px; direction: rtl;" oninput="sendFreq(this.value)">
+        <!-- Modules 2 & 3: Gyroscope Calibration -->
+        <p id="gyro-text" style="color: #8b949e; margin-top: 20px; display: none;">To scan the patient, enable motion tracking.</p>
+        <button id="gyro-btn" style="display: none;" onclick="startMotion()">ENABLE MOTION</button>
     </div>
 
     <script>
@@ -138,48 +58,48 @@
 
             conn.on('open', () => {
                 document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('controller-screen').style.display = 'flex';
+                document.getElementById('probe-screen').style.display = 'flex';
                 
-                // Watch for network messages FROM the laptop to unlock modules
+                // Watch for commands from the laptop
                 conn.on('data', (data) => {
                     if (data.command === 'unlock_mod2') {
                         document.getElementById('fire-btn').style.display = 'none';
-                        document.getElementById('next-mod-btn').style.display = 'block';
-                    }
-                    if (data.command === 'unlock_mod3') {
-                        // If we are on Mod 2, show the button to proceed to Mod 3
-                        document.getElementById('next-mod3-btn').style.display = 'block';
+                        document.getElementById('gyro-text').style.display = 'block';
+                        document.getElementById('gyro-btn').style.display = 'block';
                     }
                 });
             });
         }
 
         function firePulse() {
-            if (conn && conn.open) {
-                conn.send({ fire: true });
-                if (navigator.vibrate) navigator.vibrate(100);
+            if (conn && conn.open) conn.send({ fire: true });
+            if (navigator.vibrate) navigator.vibrate(100);
+        }
+
+        // --- NEW: INERTIAL MEASUREMENT UNIT (IMU) ---
+        function startMotion() {
+            document.getElementById('gyro-btn').innerText = "CALIBRATED";
+            document.getElementById('gyro-btn').style.backgroundColor = "#238636";
+            
+            // Request permission for iOS 13+ devices
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        }
+                    }).catch(console.error);
+            } else {
+                // Non-iOS devices
+                window.addEventListener('deviceorientation', handleOrientation);
             }
         }
 
-        function startMod2() {
-            if (conn && conn.open) conn.send({ action: 'start_mod_2' });
-            document.getElementById('controller-screen').style.display = 'none';
-            document.getElementById('mod2-screen').style.display = 'flex';
-        }
-
-        function startMod3() {
-            if (conn && conn.open) conn.send({ action: 'start_mod_3' });
-            document.getElementById('mod2-screen').style.display = 'none';
-            document.getElementById('mod3-screen').style.display = 'flex';
-        }
-
-        function sendSweep(val) {
-            if (conn && conn.open) conn.send({ sweep: val });
-        }
-
-        function sendFreq(val) {
-            document.getElementById('freq-val').innerText = parseFloat(val).toFixed(1);
-            if (conn && conn.open) conn.send({ frequency: val });
+        function handleOrientation(event) {
+            // event.gamma represents the left-to-right tilt of the phone in degrees
+            if (conn && conn.open) {
+                conn.send({ orientation: { gamma: event.gamma } });
+            }
         }
     </script>
 </body>
