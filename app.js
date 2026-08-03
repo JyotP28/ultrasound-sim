@@ -2,9 +2,6 @@
 // THE TUTORIAL ENGINE (LMS Navigation)
 // ==========================================
 
-// ==========================================
-// LANDING PAGE & MODE ROUTING
-// ==========================================
 window.startSimulator = function() {
     Tutorial.currentModule = 1;
     Tutorial.currentStep = 1;
@@ -35,12 +32,8 @@ window.startPlayground = function() {
     setTimeout(() => { landing.style.display = 'none'; }, 500);
 
     if (typeof loadPlayground === 'function') loadPlayground();
-
-    // Forcibly ping the phone to wake up the IMU data stream!
     Tutorial.syncPhone();
 };
-
-let activeConnection = null; 
 
 const Tutorial = {
     currentModule: 1,
@@ -78,29 +71,15 @@ const Tutorial = {
         4: {
             title: "Module 4: Probe Manipulation",
             steps: {
-                1: { 
-                    text: "Rocking (Heel-to-Toe)", 
-                    details: "Rocking involves angling the transducer along its long axis (tilting side-to-side).\n\nThere is a blood vessel deep in this tissue, but it is currently off-center to the left. Tilt your phone side-to-side (Rocking) to sweep the beam and find the circular vessel.<br><div class='diagram-container'><div class='diagram-phone diagram-rock'></div></div>", 
-                    action: "rock_center" 
-                },
-                2: { 
-                    text: "Rotating (Twisting)", 
-                    details: "Rotating involves twisting the transducer around its vertical axis. This changes your view from a transverse (cross-section) to a longitudinal (long-axis) view.\n\nTwist your phone 90 degrees to turn the circular vessel into a long, tubular highway.<br><div class='diagram-container'><div class='diagram-phone diagram-rotate'></div></div>", 
-                    action: "rotate_long" 
-                },
-                3: { 
-                    text: "Fanning (Sweeping)", 
-                    details: "Fanning involves angling the transducer along its short axis (tilting forward or backward).\n\nNow that you have a longitudinal view, tilt the top of the phone forward (Fanning) to angle the beam down the length of the vessel and find the bright white blood clot.<br><div class='diagram-container'><div class='diagram-phone diagram-fan'></div></div>", 
-                    action: "fan_clot" 
-                }
+                1: { text: "Rocking (Heel-to-Toe)", details: "Rocking involves angling the transducer along its long axis (tilting side-to-side).\n\nThere is a blood vessel deep in this tissue, but it is currently off-center to the left. Tilt your phone side-to-side (Rocking) to sweep the beam and find the circular vessel.<br><div class='diagram-container'><div class='diagram-phone diagram-rock'></div></div>", action: "rock_center" },
+                2: { text: "Rotating (Twisting)", details: "Rotating involves twisting the transducer around its vertical axis. This changes your view from a transverse (cross-section) to a longitudinal (long-axis) view.\n\nTwist your phone 90 degrees to turn the circular vessel into a long, tubular highway.<br><div class='diagram-container'><div class='diagram-phone diagram-rotate'></div></div>", action: "rotate_long" },
+                3: { text: "Fanning (Sweeping)", details: "Fanning involves angling the transducer along its short axis (tilting forward or backward).\n\nNow that you have a longitudinal view, tilt the top of the phone forward (Fanning) to angle the beam down the length of the vessel and find the bright white blood clot.<br><div class='diagram-container'><div class='diagram-phone diagram-fan'></div></div>", action: "fan_clot" }
             },
             totalSteps: 3
         }
     },
 
-    init: function() { 
-        this.updateHUD(); 
-    },
+    init: function() { this.updateHUD(); },
 
     updateHUD: function() {
         if (this.lastLoadedModule !== this.currentModule) {
@@ -146,12 +125,9 @@ const Tutorial = {
 
     evaluateAction: function(actionType) {
         const mod = this.syllabus[this.currentModule];
-        
-        // Safety Shield: Aborts if checking an action while in the playground
         if (!mod || !mod.steps || !mod.steps[this.currentStep]) return; 
 
-        const expected = mod.steps[this.currentStep].action;
-        if (actionType === expected) {
+        if (actionType === mod.steps[this.currentStep].action) {
             const btnNext = document.getElementById('btn-next');
             btnNext.disabled = false;
             btnNext.innerText = "Next \u2192";
@@ -195,10 +171,10 @@ const Tutorial = {
     },
 
     syncPhone: function() {
-        if (activeConnection) {
-            // Jedi Mind Trick: Tell the phone it's on Module 4 when we are in the Playground
+        if (typeof channel !== 'undefined') {
             let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
-            activeConnection.send({ command: 'sync_module', module: modNum });
+            // Publish command to the Ably cloud for the phone to hear
+            channel.publish('host-command', { command: 'sync_module', module: modNum });
         }
     },
 
@@ -210,42 +186,44 @@ const Tutorial = {
 };
 
 // ==========================================
-// NETWORK CONNECTION (DEFAULT)
+// NETWORK CONNECTION (ABLY CLOUD WEBSOCKETS)
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-// Standard PeerJS Initialization
-const peer = new Peer('sim-hosp-' + roomPIN);
+// >>> PASTE YOUR ABLY ROOT API KEY HERE <<<
+const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo'; 
+
+const realtime = new Ably.Realtime(ABLY_API_KEY);
+const channel = realtime.channels.get('sim-hosp-' + roomPIN);
 
 window.onload = () => {
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
     Tutorial.init();
 };
 
-peer.on('connection', conn => {
-    // The False Positive fix is retained to ensure proper syncing
-    conn.on('open', () => {
-        activeConnection = conn; 
-        document.getElementById('status').innerText = 'PROBE CONNECTED';
-        document.getElementById('status').style.color = '#44ff44';
-        document.getElementById('room-display').style.display = 'none'; 
-        
-        Tutorial.evaluateAction('connect');
-        Tutorial.syncPhone();
-    });
+// Ably Presence: Detects when the phone enters the room channel
+channel.presence.subscribe('enter', (member) => {
+    document.getElementById('status').innerText = 'PROBE CONNECTED';
+    document.getElementById('status').style.color = '#44ff44';
+    document.getElementById('room-display').style.display = 'none'; 
+    
+    Tutorial.evaluateAction('connect');
+    Tutorial.syncPhone();
+});
 
-    conn.on('data', data => {
-        if (data.fire === true) {
-            Tutorial.evaluateAction('fire_pulse');
-            if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+// Ably Subscription: Listens for sensor data flowing down from the cloud
+channel.subscribe('sensor-data', (message) => {
+    const data = message.data;
+    
+    if (data.fire === true) {
+        Tutorial.evaluateAction('fire_pulse');
+        if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+    }
+    
+    if (data.orientation) {
+        if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
+        if (typeof window.updateGlobalIMU === 'function') {
+            window.updateGlobalIMU(data.orientation);
         }
-        
-        // The IMU Routing runs successfully
-        if (data.orientation) {
-            if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
-            if (typeof window.updateGlobalIMU === 'function') {
-                window.updateGlobalIMU(data.orientation);
-            }
-        }
-    });
+    }
 });

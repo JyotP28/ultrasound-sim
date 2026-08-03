@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Probe Controller</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Swap PeerJS for the Ably WebSockets Library -->
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; text-align: center;}
@@ -35,29 +36,41 @@
     </div>
 
     <script>
-        const peer = new Peer();
-        let conn;
+        // >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
+        const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
+        
+        let realtime, channel;
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
-            conn = peer.connect('sim-hosp-' + pin);
-            document.getElementById('status').innerText = 'Connecting...';
+            document.getElementById('status').innerText = 'Connecting to Cloud...';
+            
+            // Connect to Ably Cloud
+            realtime = new Ably.Realtime(ABLY_API_KEY);
+            channel = realtime.channels.get('sim-hosp-' + pin);
 
-            conn.on('open', () => {
+            // Announce presence (This triggers the 'PROBE CONNECTED' on the laptop)
+            channel.presence.enter('probe', (err) => {
+                if (err) {
+                    document.getElementById('status').innerText = 'Connection Error';
+                    return;
+                }
+                
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('probe-screen').style.display = 'flex';
-                
-                conn.on('data', (data) => {
-                    // Hide the FIRE button when moving to Mod 2/3
-                    if (data.command === 'sync_module') {
-                        document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
-                    }
-                });
+            });
+
+            // Listen for sync commands from the laptop
+            channel.subscribe('host-command', (message) => {
+                const data = message.data;
+                if (data.command === 'sync_module') {
+                    document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
+                }
             });
         }
 
         function firePulse() {
-            if (conn && conn.open) conn.send({ fire: true });
+            if (channel) channel.publish('sensor-data', { fire: true });
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
@@ -74,9 +87,16 @@
             }
         }
 
+        // Throttle sensor sending to roughly 30 frames-per-second. 
+        // This keeps motion beautifully smooth while preventing you from blowing past Ably's free tier limits!
+        let lastSendTime = 0;
         function handleOrientation(event) {
-            if (conn && conn.open) {
-                conn.send({ orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } });
+            if (!channel) return;
+            
+            const now = Date.now();
+            if (now - lastSendTime > 30) { 
+                lastSendTime = now;
+                channel.publish('sensor-data', { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } });
             }
         }
     </script>
