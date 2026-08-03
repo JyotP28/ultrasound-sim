@@ -222,13 +222,40 @@ function onProbeConnected(transportMode) {
     Tutorial.syncPhone();
 }
 
-window.onload = () => {
+// THE FIX: Use addEventListener so we don't accidentally overwrite graphics.js!
+window.addEventListener('load', () => {
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
     Tutorial.init();
+
+    let p2pStatus = "Connecting...";
+    let cloudStatus = "Connecting...";
+
+    const updateStatusUI = () => {
+        // Don't update the dashboard if the probe has already connected
+        const statusEl = document.getElementById('status');
+        if (!statusEl || statusEl.innerText.includes('PROBE CONNECTED')) return;
+
+        statusEl.innerHTML = `
+            <div style="font-size: 16px; margin-top: 10px; font-weight: normal;">
+                Direct P2P: <span style="font-weight: bold; color:${p2pStatus === 'READY' ? '#44ff44' : (p2pStatus === 'Connecting...' ? '#888' : '#ff4444')}">${p2pStatus}</span>
+                <br>
+                Cloud Relay: <span style="font-weight: bold; color:${cloudStatus === 'READY' ? '#58a6ff' : (cloudStatus === 'Connecting...' ? '#888' : '#ff4444')}">${cloudStatus}</span>
+            </div>
+        `;
+    };
+
+    updateStatusUI();
 
     // 1. Primary: PeerJS (Direct P2P)
     try {
         peerHost = new Peer('sim-hosp-' + roomPIN);
+        
+        // Wait for the laptop to successfully register its ID
+        peerHost.on('open', (id) => {
+            p2pStatus = "READY";
+            updateStatusUI();
+        });
+
         peerHost.on('connection', (conn) => {
             conn.on('open', () => {
                 activeP2PConn = conn;
@@ -236,30 +263,35 @@ window.onload = () => {
                 conn.on('data', handleIncomingData);
             });
         });
-        // Silently catch PeerJS errors so they don't crash the Ably fallback
-        peerHost.on('error', (err) => console.warn("P2P Blocked, relying on Ably."));
-    } catch(e) {}
+        
+        // If the laptop's P2P gets blocked, capture the exact reason!
+        peerHost.on('error', (err) => {
+            p2pStatus = "BLOCKED (" + err.type + ")";
+            updateStatusUI();
+        });
+    } catch(e) {
+        p2pStatus = "CRASHED (" + e.message + ")";
+        updateStatusUI();
+    }
 
     // 2. Fallback: Ably Cloud Relay
     try {
         ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
         
-        // Wait for Ably to confirm connection before updating the UI
         ablyRealtime.connection.on('connected', () => {
             ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
             
-            // Attach to the channel and enter presence
             ablyChannel.attach((err) => {
                 if (err) {
-                    console.error(err);
+                    cloudStatus = "BLOCKED";
+                    updateStatusUI();
                     return;
                 }
                 
                 ablyChannel.presence.enter('laptop-host', (pErr) => {
                     if (!pErr) {
-                        // THE FIX: Visually confirm the laptop is ready and waiting!
-                        document.getElementById('status').innerText = 'WAITING FOR PROBE...';
-                        document.getElementById('status').style.color = '#58a6ff'; // Bright Blue
+                        cloudStatus = "READY";
+                        updateStatusUI();
                     }
                 });
                 
@@ -276,11 +308,12 @@ window.onload = () => {
         });
 
         ablyRealtime.connection.on('failed', () => {
-            document.getElementById('status').innerText = 'FIREWALL BLOCKED CLOUD';
-            document.getElementById('status').style.color = '#ff4444'; // Red
+            cloudStatus = "BLOCKED";
+            updateStatusUI();
         });
         
     } catch (err) {
-        console.error("Ably Init Exception:", err);
+        cloudStatus = "CRASHED (" + err.message + ")";
+        updateStatusUI();
     }
-};
+});
