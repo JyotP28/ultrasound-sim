@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-    <!-- ==========================================
+   <!-- ==========================================
          LANDING PAGE OVERLAY
          ========================================== -->
     <div id="landing-page">
@@ -18,7 +18,12 @@
             <h1>Ultrasound Physics & Mechanics</h1>
             <h2>Interactive Sonography Simulator</h2>
             <p>Welcome to the diagnostic sonography training module. You will use your smartphone as a spatial transducer to learn the physics of sound waves, echogenicity, and clinical probe manipulation in a full 3D environment.</p>
-            <button id="start-btn" onclick="startSimulator()">Start Course</button>
+            
+            <!-- NEW: Button Group for Modes -->
+            <div class="button-group">
+                <button id="start-btn" onclick="startSimulator()">Start Course</button>
+                <button id="play-btn" onclick="startPlayground()">Playground</button>
+            </div>
         </div>
     </div>
     <div id="app-container">
@@ -75,7 +80,10 @@
     <script src="graphics.js"></script>
     <script src="module2.js"></script>
     <script src="module3.js"></script>
-    <script src="module4.js"></script> <!-- NEW SCRIPT HERE -->
+    <script src="module4.js"></script>
+    <script src="playground.js"></script> <!-- NEW PLAYGROUND ENGINE -->
     <script src="app.js"></script>
+</body>
+</html>
 </body>
 </html>

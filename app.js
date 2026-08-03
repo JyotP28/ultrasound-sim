@@ -1,22 +1,51 @@
 // ==========================================
 // THE TUTORIAL ENGINE (LMS Navigation)
 // ==========================================
+
 // ==========================================
-// LANDING PAGE LOGIC
+// LANDING PAGE & MODE ROUTING
 // ==========================================
 window.startSimulator = function() {
+    Tutorial.currentModule = 1;
+    Tutorial.currentStep = 1;
+    Tutorial.init();
+    
     const landing = document.getElementById('landing-page');
-    landing.style.opacity = '0'; // Trigger the CSS fade
-    setTimeout(() => {
-        landing.style.display = 'none'; // Remove it from the DOM flow after fading
-    }, 500); // 500ms matches the CSS transition time
+    landing.style.opacity = '0';
+    setTimeout(() => { landing.style.display = 'none'; }, 500);
 };
+
+window.startPlayground = function() {
+    Tutorial.currentModule = 'playground'; 
+    
+    document.getElementById('hud-title').innerText = "Playground: Laser Trace";
+    document.getElementById('step-count').innerText = "∞";
+    document.getElementById('hud-instructions').innerText = "Level 1: The Circle";
+    document.getElementById('edu-details').innerHTML = "Hold your phone completely upright like an ultrasound probe.<br><br>Pitch and Roll your wrist to steer the red laser dot over all the checkpoints on the table to trace the shape!";
+    
+    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('btn-next').disabled = true;
+    document.getElementById('btn-next').innerText = "Game Active";
+
+    const freqConsole = document.getElementById('console-freq');
+    if (freqConsole) freqConsole.style.display = 'none';
+
+    const landing = document.getElementById('landing-page');
+    landing.style.opacity = '0';
+    setTimeout(() => { landing.style.display = 'none'; }, 500);
+
+    if (typeof loadPlayground === 'function') loadPlayground();
+
+    // Forcibly ping the phone to wake up the IMU data stream!
+    Tutorial.syncPhone();
+};
+
 let activeConnection = null; 
 
 const Tutorial = {
     currentModule: 1,
     currentStep: 1,
-    lastLoadedModule: 0, // NEW: Tracks the actual 3D scene currently loaded
+    lastLoadedModule: 0, 
     
     syllabus: {
         1: {
@@ -74,8 +103,6 @@ const Tutorial = {
     },
 
     updateHUD: function() {
-        // --- NEW FAILSAFE ---
-        // If the 3D module on screen doesn't match the text module, force a reload!
         if (this.lastLoadedModule !== this.currentModule) {
             this.loadGraphicsForCurrentModule();
             this.lastLoadedModule = this.currentModule;
@@ -89,14 +116,12 @@ const Tutorial = {
         document.getElementById('hud-instructions').innerText = mod.steps[this.currentStep].text;
         document.getElementById('edu-details').innerHTML = mod.steps[this.currentStep].details.replace(/\n/g, '<br>');
 
-        // Toggle Frequency Slider Visibility on Laptop
         const freqConsole = document.getElementById('console-freq');
         if (freqConsole) {
             freqConsole.style.opacity = (this.currentModule === 3) ? '1' : '0';
             freqConsole.style.pointerEvents = (this.currentModule === 3) ? 'auto' : 'none';
         }
 
-        // --- THE NEXT/PREV NAVIGATION LOCK ---
         const btnPrev = document.getElementById('btn-prev');
         const btnNext = document.getElementById('btn-next');
         
@@ -106,11 +131,10 @@ const Tutorial = {
             btnNext.disabled = true;
             btnNext.innerText = "Course Complete";
         } else {
-            // If the step requires an action, disable the Next button until they do it!
             if (mod.steps[this.currentStep].action) {
                 btnNext.disabled = true;
                 btnNext.innerText = "Awaiting Action...";
-                btnNext.style.backgroundColor = ""; // Reset style
+                btnNext.style.backgroundColor = ""; 
                 btnNext.style.borderColor = "";
             } else {
                 btnNext.disabled = false;
@@ -121,13 +145,17 @@ const Tutorial = {
     },
 
     evaluateAction: function(actionType) {
-        const expected = this.syllabus[this.currentModule].steps[this.currentStep].action;
+        const mod = this.syllabus[this.currentModule];
+        
+        // Safety Shield: Aborts if checking an action while in the playground
+        if (!mod || !mod.steps || !mod.steps[this.currentStep]) return; 
+
+        const expected = mod.steps[this.currentStep].action;
         if (actionType === expected) {
-            // Success! Unlock the Next button.
             const btnNext = document.getElementById('btn-next');
             btnNext.disabled = false;
             btnNext.innerText = "Next \u2192";
-            btnNext.style.backgroundColor = "#238636"; // Turn it green!
+            btnNext.style.backgroundColor = "#238636"; 
             btnNext.style.borderColor = "#2ea043";
         }
     },
@@ -141,7 +169,7 @@ const Tutorial = {
             if (this.syllabus[this.currentModule + 1]) {
                 this.currentModule++;
                 this.currentStep = 1;
-                this.updateHUD(); // This will now automatically trigger the 3D graphics change!
+                this.updateHUD(); 
             }
         }
         this.syncPhone();
@@ -154,7 +182,7 @@ const Tutorial = {
         } else if (this.currentModule > 1) {
             this.currentModule--;
             this.currentStep = this.syllabus[this.currentModule].totalSteps;
-            this.updateHUD(); // This will now automatically trigger the 3D graphics change!
+            this.updateHUD(); 
         }
         this.syncPhone();
     },
@@ -168,7 +196,9 @@ const Tutorial = {
 
     syncPhone: function() {
         if (activeConnection) {
-            activeConnection.send({ command: 'sync_module', module: this.currentModule });
+            // Jedi Mind Trick: Tell the phone it's on Module 4 when we are in the Playground
+            let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
+            activeConnection.send({ command: 'sync_module', module: modNum });
         }
     },
 
@@ -180,10 +210,29 @@ const Tutorial = {
 };
 
 // ==========================================
-// NETWORK CONNECTION
+// NETWORK CONNECTION & FIREWALL BYPASS
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
-const peer = new Peer('sim-hosp-' + roomPIN);
+
+// NEW: Robust STUN/TURN Network Config to bypass school firewalls
+const robustNetworkConfig = {
+    config: {
+        'iceServers': [
+            { url: 'stun:stun.l.google.com:19302' },
+            { url: 'stun:stun1.l.google.com:19302' },
+            {
+                urls: 'turn:relay.metered.ca:443',
+                username: 'metered',
+                credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651'
+            }
+        ]
+    },
+    secure: true,
+    port: 443
+};
+
+// Initialize PeerJS with the robust config
+const peer = new Peer('sim-hosp-' + roomPIN, robustNetworkConfig);
 
 window.onload = () => {
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
@@ -195,6 +244,8 @@ peer.on('connection', conn => {
     document.getElementById('status').innerText = 'PROBE CONNECTED';
     document.getElementById('status').style.color = '#44ff44';
     document.getElementById('room-display').style.display = 'none'; 
+    
+    // This connection trigger is completely safe
     Tutorial.evaluateAction('connect');
     Tutorial.syncPhone();
 
@@ -204,7 +255,7 @@ peer.on('connection', conn => {
             if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
         }
         
-        // Unlocked Global IMU Routing
+        // The IMU Routing runs successfully
         if (data.orientation) {
             if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
             if (typeof window.updateGlobalIMU === 'function') {
