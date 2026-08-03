@@ -35,50 +35,33 @@
     </div>
 
     <script>
-        // ==========================================
-        // NEW: ROBUST NETWORK CONFIGURATION (probe.html)
-        // This must be identical to the configuration in graphics.js!
-        // ==========================================
+        // Cleaned up configuration matching the laptop exactly
         const robustNetworkConfig = {
             config: {
                 'iceServers': [
-                    { url: 'stun:stun.l.google.com:19302' },
-                    { url: 'stun:stun1.l.google.com:19302' },
-                    {
-                        urls: 'turn:relay.metered.ca:443',
-                        username: 'metered',
-                        credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651'
-                    }
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' },
+                    { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' }
                 ]
-            },
-            secure: true,
-            port: 443
+            }
         };
 
-        // Initialize the phone Peer using the safety relay configuration!
-        // OLD CODE (Replace this):
-        // const peer = new Peer(); 
-
-        // NEW CODE:
         const peer = new Peer(robustNetworkConfig); 
-        
         let conn;
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
             
-            // We ensure we connect using standard secure ports to help bypass the firewall
-            conn = peer.connect('sim-hosp-' + pin, { secure: true, port: 443 });
+            // THE FIX: Removed the invalid { secure: true, port: 443 } that was crashing the connection!
+            conn = peer.connect('sim-hosp-' + pin);
             
-            document.getElementById('status').innerText = 'Connecting via Relay...';
+            document.getElementById('status').innerText = 'Negotiating Relay...';
 
             conn.on('open', () => {
-                // ... rest of your existing code (switch screens, firePulse, startMotion) ...
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('probe-screen').style.display = 'flex';
                 
                 conn.on('data', (data) => {
-                    // Hide the FIRE button when moving to Mod 2/3
                     if (data.command === 'sync_module') {
                         document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
                     }
@@ -110,5 +93,3 @@
             }
         }
     </script>
-</body>
-</html>

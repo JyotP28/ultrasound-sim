@@ -214,53 +214,17 @@ const Tutorial = {
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-// NEW: Robust STUN/TURN Network Config to bypass school firewalls
+// NEW: Cleaned up STUN/TURN Network Config 
 const robustNetworkConfig = {
     config: {
         'iceServers': [
-            { url: 'stun:stun.l.google.com:19302' },
-            { url: 'stun:stun1.l.google.com:19302' },
-            {
-                urls: 'turn:relay.metered.ca:443',
-                username: 'metered',
-                credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651'
-            }
+            { urls: 'stun:stun.l.google.com:19302' },
+            // Port 80 (Standard Web) and 443 (Secure Web) to guarantee firewall penetration
+            { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' },
+            { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' }
         ]
-    },
-    secure: true,
-    port: 443
+    }
 };
 
-// Initialize PeerJS with the robust config
+// Initialize PeerJS safely
 const peer = new Peer('sim-hosp-' + roomPIN, robustNetworkConfig);
-
-window.onload = () => {
-    document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
-    Tutorial.init();
-};
-
-peer.on('connection', conn => {
-    activeConnection = conn; 
-    document.getElementById('status').innerText = 'PROBE CONNECTED';
-    document.getElementById('status').style.color = '#44ff44';
-    document.getElementById('room-display').style.display = 'none'; 
-    
-    // This connection trigger is completely safe
-    Tutorial.evaluateAction('connect');
-    Tutorial.syncPhone();
-
-    conn.on('data', data => {
-        if (data.fire === true) {
-            Tutorial.evaluateAction('fire_pulse');
-            if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
-        }
-        
-        // The IMU Routing runs successfully
-        if (data.orientation) {
-            if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
-            if (typeof window.updateGlobalIMU === 'function') {
-                window.updateGlobalIMU(data.orientation);
-            }
-        }
-    });
-});
