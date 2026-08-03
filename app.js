@@ -214,17 +214,48 @@ const Tutorial = {
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-// NEW: Cleaned up STUN/TURN Network Config 
 const robustNetworkConfig = {
     config: {
         'iceServers': [
             { urls: 'stun:stun.l.google.com:19302' },
-            // Port 80 (Standard Web) and 443 (Secure Web) to guarantee firewall penetration
             { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' },
             { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' }
-        ]
+        ],
+        // THE MAGIC BULLET: This forces the data to bounce off the external server, 
+        // completely bypassing the school's Client Isolation firewall!
+        'iceTransportPolicy': 'relay' 
     }
 };
 
-// Initialize PeerJS safely
 const peer = new Peer('sim-hosp-' + roomPIN, robustNetworkConfig);
+
+window.onload = () => {
+    document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
+    Tutorial.init();
+};
+
+peer.on('connection', conn => {
+    // THE FALSE POSITIVE FIX: Wait until the bridge is actually built to say "Connected"!
+    conn.on('open', () => {
+        activeConnection = conn; 
+        document.getElementById('status').innerText = 'PROBE CONNECTED';
+        document.getElementById('status').style.color = '#44ff44';
+        document.getElementById('room-display').style.display = 'none'; 
+        
+        Tutorial.evaluateAction('connect');
+        Tutorial.syncPhone();
+    });
+
+    conn.on('data', data => {
+        if (data.fire === true) {
+            Tutorial.evaluateAction('fire_pulse');
+            if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+        }
+        if (data.orientation) {
+            if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
+            if (typeof window.updateGlobalIMU === 'function') {
+                window.updateGlobalIMU(data.orientation);
+            }
+        }
+    });
+});

@@ -35,14 +35,15 @@
     </div>
 
     <script>
-        // Cleaned up configuration matching the laptop exactly
         const robustNetworkConfig = {
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' },
                     { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' }
-                ]
+                ],
+                // Force the phone to bounce data externally as well
+                'iceTransportPolicy': 'relay'
             }
         };
 
@@ -51,11 +52,9 @@
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
-            
-            // THE FIX: Removed the invalid { secure: true, port: 443 } that was crashing the connection!
             conn = peer.connect('sim-hosp-' + pin);
             
-            document.getElementById('status').innerText = 'Negotiating Relay...';
+            document.getElementById('status').innerText = 'Bypassing Firewall...';
 
             conn.on('open', () => {
                 document.getElementById('login-screen').style.display = 'none';
