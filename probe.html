@@ -40,10 +40,13 @@
         const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
 
 
-        let activeTransport = null; // 'p2p' or 'ably'
+        let activeTransport = null;
         let p2pConn = null;
         let ablyChannel = null;
         let ablyRealtime = null;
+
+        // 1. Pre-warm the WebRTC connection exactly like your original code!
+        const peer = new Peer();
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
@@ -61,44 +64,44 @@
                 connectViaAbly(pin);
             };
 
-            // Give WebRTC exactly 3.5 seconds to build the bridge
+            // Give WebRTC 3.5 seconds to build the bridge
             const p2pTimeout = setTimeout(() => {
                 triggerAblyFallback('Timeout (3.5s)');
             }, 3500);
 
             try {
-                // THE FIX: Generate a completely fresh PeerJS connection every time you click 
-                // to prevent "stale" or "asleep" connections from instantly crashing.
-                const peer = new Peer();
+                // THE FIX: Do not wait for events. Just fire the connection exactly like your old code did.
+                // PeerJS handles the queuing automatically!
+                p2pConn = peer.connect('sim-hosp-' + pin);
 
-                // Wait for the fresh connection to the server to open BEFORE dialing the laptop
-                peer.on('open', () => {
-                    p2pConn = peer.connect('sim-hosp-' + pin);
+                p2pConn.on('open', () => {
+                    if (fallbackTriggered) return; // Prevent double-connections
+                    clearTimeout(p2pTimeout);
+                    activeTransport = 'p2p';
+                    onConnectedSuccess();
+                });
 
-                    p2pConn.on('open', () => {
-                        if (fallbackTriggered) return; // Prevent double-connections
-                        clearTimeout(p2pTimeout);
-                        activeTransport = 'p2p';
-                        onConnectedSuccess();
-                    });
-
-                    p2pConn.on('error', (err) => {
-                        clearTimeout(p2pTimeout);
-                        triggerAblyFallback('Data connection error');
-                    });
+                p2pConn.on('error', (err) => {
+                    clearTimeout(p2pTimeout);
+                    triggerAblyFallback('Data connection error');
                 });
                 
-                // If the laptop isn't on a P2P-friendly network, it throws an error instantly
-                peer.on('error', (err) => {
-                    clearTimeout(p2pTimeout);
-                    triggerAblyFallback('Peer Server Blocked: ' + err.type);
-                });
-
             } catch (err) {
                 clearTimeout(p2pTimeout);
                 triggerAblyFallback('Init exception');
             }
         }
+
+        // Global error catcher: If the laptop is blocked on school Wi-Fi and didn't register its ID, 
+        // PeerJS throws a 'peer-unavailable' error here. We catch it and trigger the Cloud Relay!
+        peer.on('error', (err) => {
+            if (activeTransport !== 'p2p') {
+                console.log("P2P Unavailable. Forcing Cloud Relay...");
+                // Triggering a mock click of the fallback inside the error handler
+                const pin = document.getElementById('pin-input').value;
+                if (pin) connectViaAbly(pin);
+            }
+        });
 
         // --- ATTEMPT 2: CLOUD RELAY (ABLY) WITH HOST VALIDATION ---
         function connectViaAbly(pin) {
