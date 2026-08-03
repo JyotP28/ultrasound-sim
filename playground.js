@@ -19,7 +19,7 @@ window.loadPlayground = function() {
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
 
     pgGroup = new THREE.Group();
-    pgGroup.position.set(0, 1.2, 0); // Position probe in the air above the table
+    pgGroup.position.set(0, 1.0, 0); // Moved probe down slightly for better centering
     scene3D.add(pgGroup);
 
     // 1. Render the Probe
@@ -34,20 +34,22 @@ window.loadPlayground = function() {
 
     // 3. Build the 3D Checkpoint Ring
     checkpoints = [];
-    const radius = 2.0;
+    const radius = 1.4; // Tightened the circle so it doesn't run off the edges of the screen
     const numPoints = 12;
     
     for (let i = 0; i < numPoints; i++) {
         let angle = (i / numPoints) * Math.PI * 2;
-        // Position them in a circle on a virtual "table" below the probe
         let x = Math.cos(angle) * radius;
         let z = Math.sin(angle) * radius;
         
+        // Made the spheres slightly larger (0.35) so they are easier to hit
         let cpMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(0.3, 16, 16),
-            new THREE.MeshBasicMaterial({color: 0x333333}) // Default inactive color
+            new THREE.SphereGeometry(0.35, 16, 16),
+            new THREE.MeshBasicMaterial({color: 0x333333}) 
         );
-        cpMesh.position.set(x, -3, z);
+        
+        // THE FIX: Brought the targets UP from -3.0 to -1.2 so they are clearly visible!
+        cpMesh.position.set(x, -1.2, z); 
         scene3D.add(cpMesh);
         checkpoints.push(cpMesh);
     }
@@ -83,7 +85,6 @@ function createScoreUI() {
         <button onclick="resetGame()" style="font-size: 20px; padding: 15px 30px; background: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);">Play Again</button>
     `;
     
-    // Attach it right into the spatial view panel!
     document.getElementById('spatial-view').appendChild(scoreOverlay);
 }
 
@@ -141,7 +142,6 @@ window.animatePlayground = function() {
     let probeWorldPos = new THREE.Vector3();
     pgGroup.getWorldPosition(probeWorldPos);
     
-    // Calculate the exact 3D vector the laser is pointing
     let currentLaserDir = laserDirection.clone().applyQuaternion(pgGroup.quaternion).normalize();
     raycaster.set(probeWorldPos, currentLaserDir);
 
@@ -151,7 +151,7 @@ window.animatePlayground = function() {
     if (intersects.length > 0) {
         // HIT DETECTED!
         activeCp.material.color.setHex(0x44ff44); // Turn it Success Green
-        activeCp.scale.set(1, 1, 1); 
+        activeCp.scale.set(1, 1, 1); // Stop pulsing
         
         currentCheckpointIndex++;
         
