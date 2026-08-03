@@ -190,41 +190,51 @@ const Tutorial = {
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-// >>> PASTE YOUR ABLY ROOT API KEY HERE <<<
+// >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
 const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo'; 
 
-// Give the laptop a specific identity so it's allowed on the network
-const realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
-const channel = realtime.channels.get('sim-hosp-' + roomPIN);
+// Declare the variables globally so the rest of the app can use them
+let realtime, channel;
 
+// window.onload guarantees the Ably library has finished downloading!
 window.onload = () => {
+    // 1. Load the UI first
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
     Tutorial.init();
+    
+    // 2. Initialize Ably safely
+    try {
+        realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
+        channel = realtime.channels.get('sim-hosp-' + roomPIN);
+
+        // Ably Presence: Detects when the phone enters the room channel
+        channel.presence.subscribe('enter', (member) => {
+            document.getElementById('status').innerText = 'PROBE CONNECTED';
+            document.getElementById('status').style.color = '#44ff44';
+            document.getElementById('room-display').style.display = 'none'; 
+            
+            Tutorial.evaluateAction('connect');
+            Tutorial.syncPhone();
+        });
+
+        // Ably Subscription: Listens for sensor data flowing down from the cloud
+        channel.subscribe('sensor-data', (message) => {
+            const data = message.data;
+            
+            if (data.fire === true) {
+                Tutorial.evaluateAction('fire_pulse');
+                if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+            }
+            
+            if (data.orientation) {
+                if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
+                if (typeof window.updateGlobalIMU === 'function') {
+                    window.updateGlobalIMU(data.orientation);
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Cloud Network Error:", err);
+        document.getElementById('room-display').innerText = "Network Error - Check Console";
+    }
 };
-
-// Ably Presence: Detects when the phone enters the room channel
-channel.presence.subscribe('enter', (member) => {
-    document.getElementById('status').innerText = 'PROBE CONNECTED';
-    document.getElementById('status').style.color = '#44ff44';
-    document.getElementById('room-display').style.display = 'none'; 
-    
-    Tutorial.evaluateAction('connect');
-    Tutorial.syncPhone();
-});
-
-// Ably Subscription: Listens for sensor data flowing down from the cloud
-channel.subscribe('sensor-data', (message) => {
-    const data = message.data;
-    
-    if (data.fire === true) {
-        Tutorial.evaluateAction('fire_pulse');
-        if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
-    }
-    
-    if (data.orientation) {
-        if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
-        if (typeof window.updateGlobalIMU === 'function') {
-            window.updateGlobalIMU(data.orientation);
-        }
-    }
-});
