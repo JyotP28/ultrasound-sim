@@ -100,38 +100,47 @@
             ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
             ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
 
-            // Room validation: Check if laptop-host is active in presence
-            ablyChannel.presence.get((err, members) => {
-                if (err || !members) {
-                    document.getElementById('status').innerText = 'Room lookup failed.';
+            // THE FIX: Wait for the channel to fully attach to the cloud BEFORE checking for the laptop!
+            ablyChannel.attach((attachErr) => {
+                if (attachErr) {
+                    document.getElementById('status').innerText = 'Cloud Blocked by Firewall';
                     document.getElementById('status').style.color = '#ff4444';
                     return;
                 }
 
-                const hostIsActive = members.some(m => m.clientId === 'laptop-host');
-
-                if (!hostIsActive) {
-                    document.getElementById('status').innerText = 'Invalid PIN or Host Not Active!';
-                    document.getElementById('status').style.color = '#ff4444';
-                    ablyRealtime.close();
-                    return;
-                }
-
-                // Host confirmed active -> Join room
-                ablyChannel.presence.enter('phone-probe', (enterErr) => {
-                    if (enterErr) {
-                        document.getElementById('status').innerText = 'Cloud Access Denied';
+                // Now that we are attached, check if the laptop host is here
+                ablyChannel.presence.get((err, members) => {
+                    if (err || !members) {
+                        document.getElementById('status').innerText = 'Room lookup failed.';
                         document.getElementById('status').style.color = '#ff4444';
                         return;
                     }
 
-                    activeTransport = 'ably';
-                    onConnectedSuccess();
+                    const hostIsActive = members.some(m => m.clientId === 'laptop-host');
 
-                    ablyChannel.subscribe('host-command', (message) => {
-                        if (message.data && message.data.command === 'sync_module') {
-                            document.getElementById('fire-btn').style.display = (message.data.module === 1) ? 'flex' : 'none';
+                    if (!hostIsActive) {
+                        document.getElementById('status').innerText = 'Invalid PIN or Host Not Active!';
+                        document.getElementById('status').style.color = '#ff4444';
+                        ablyRealtime.close();
+                        return;
+                    }
+
+                    // Host confirmed active -> Join room
+                    ablyChannel.presence.enter('phone-probe', (enterErr) => {
+                        if (enterErr) {
+                            document.getElementById('status').innerText = 'Cloud Access Denied';
+                            document.getElementById('status').style.color = '#ff4444';
+                            return;
                         }
+
+                        activeTransport = 'ably';
+                        onConnectedSuccess();
+
+                        ablyChannel.subscribe('host-command', (message) => {
+                            if (message.data && message.data.command === 'sync_module') {
+                                document.getElementById('fire-btn').style.display = (message.data.module === 1) ? 'flex' : 'none';
+                            }
+                        });
                     });
                 });
             });

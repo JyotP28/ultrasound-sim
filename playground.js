@@ -1,184 +1,166 @@
 // ==========================================
-// PLAYGROUND: LASER TRACING GAME
+// PLAYGROUND MODE: LASER TRACE GAME
 // ==========================================
 
-let pgProbe, pgLaser, pgDot, pgCheckpoints = [], pgTrail = [];
-let pgLevel = 1;
+let pgGroup, laserMesh;
+let checkpoints = [];
+let currentCheckpointIndex = 0;
+let gameActive = false;
+let startTime = 0;
+let scoreOverlay;
+
+// The Laser Raycaster
+const raycaster = new THREE.Raycaster();
+const laserDirection = new THREE.Vector3(0, -1, 0); // Laser points straight down from the probe
 
 window.loadPlayground = function() {
-    console.log("Loading Playground Mode...");
-
-    // 1. Clear Scenes
+    // Clear out the educational modules
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
 
-    // 2. NEW CAMERA ANGLE: Angled Isometric View
-    // This allows you to see the depth between the hovering probe and the table!
-    camera3D.position.set(0, 5, 4); 
-    camera3D.lookAt(0, 0, 0);
+    pgGroup = new THREE.Group();
+    pgGroup.position.set(0, 1.2, 0); // Position probe in the air above the table
+    scene3D.add(pgGroup);
 
-    // 3. Build the Tracing Table
-    const table = new THREE.Mesh(
-        new THREE.PlaneGeometry(6, 6),
-        new THREE.MeshBasicMaterial({ color: 0x161b22, side: THREE.DoubleSide })
-    );
-    table.rotation.x = -Math.PI / 2;
-    scene3D.add(table);
+    // 1. Render the Probe
+    const probe = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.2), new THREE.MeshBasicMaterial({color: 0x888888}));
+    pgGroup.add(probe);
 
-    const gridHelper = new THREE.GridHelper(6, 12, 0x30363d, 0x30363d);
-    scene3D.add(gridHelper);
+    // 2. Render the Laser Beam
+    const laserGeo = new THREE.CylinderGeometry(0.015, 0.015, 10, 8);
+    laserGeo.translate(0, -5, 0); // Shift origin so it scales down from the probe
+    laserMesh = new THREE.Mesh(laserGeo, new THREE.MeshBasicMaterial({color: 0xff0000, transparent: true, opacity: 0.8}));
+    pgGroup.add(laserMesh);
 
-    // 4. NEW PROBE DESIGN: Sleek, Translucent Emitter
-    pgProbe = new THREE.Group();
+    // 3. Build the 3D Checkpoint Ring
+    checkpoints = [];
+    const radius = 2.0;
+    const numPoints = 12;
     
-    // Wireframe body so it doesn't block the view
-    const handleGeo = new THREE.CylinderGeometry(0.1, 0.15, 0.6, 16); 
-    const probeMesh = new THREE.Mesh(handleGeo, new THREE.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.3, wireframe: true }));
-    pgProbe.add(probeMesh);
-    
-    // Solid blue cap at the bottom
-    const capGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 16);
-    const capMesh = new THREE.Mesh(capGeo, new THREE.MeshBasicMaterial({ color: 0x58a6ff }));
-    capMesh.position.y = -0.3;
-    pgProbe.add(capMesh);
-
-    // Orientation Marker
-    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    marker.position.set(-0.15, 0, 0);
-    pgProbe.add(marker);
-    
-    pgProbe.position.set(0, 2.5, 0); // Float it high above the table
-    scene3D.add(pgProbe);
-
-    // 5. Build the Laser Beam & Reticle
-    pgLaser = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.015, 0.015, 1), 
-        new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.6 })
-    );
-    scene3D.add(pgLaser);
-
-    pgDot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.06, 16, 16), 
-        new THREE.MeshBasicMaterial({ color: 0xff4444 })
-    );
-    scene3D.add(pgDot);
-
-    // 6. Start the Game!
-    buildLevel(1);
-};
-
-function buildLevel(level) {
-    pgLevel = level;
-    
-    // Clean up previous level
-    pgCheckpoints.forEach(c => scene3D.remove(c));
-    pgTrail.forEach(t => scene3D.remove(t));
-    pgCheckpoints = [];
-    pgTrail = [];
-
-    let points = [];
-    
-    if (level === 1) {
-        document.getElementById('hud-instructions').innerText = "Level 1: The Circle";
-        for(let i=0; i<8; i++) {
-            let angle = (i/8) * Math.PI * 2;
-            points.push(new THREE.Vector3(Math.cos(angle)*1.2, 0, Math.sin(angle)*1.2));
-        }
-    } else if (level === 2) {
-        document.getElementById('hud-instructions').innerText = "Level 2: The Square";
-        points = [
-            new THREE.Vector3(1.2, 0, 1.2), new THREE.Vector3(0, 0, 1.2), new THREE.Vector3(-1.2, 0, 1.2),
-            new THREE.Vector3(-1.2, 0, 0), new THREE.Vector3(-1.2, 0, -1.2), new THREE.Vector3(0, 0, -1.2),
-            new THREE.Vector3(1.2, 0, -1.2), new THREE.Vector3(1.2, 0, 0)
-        ];
-    } else {
-        document.getElementById('hud-instructions').innerText = "Playground Complete!";
-        document.getElementById('edu-details').innerHTML = "You have mastered fine motor transducer control.<br><br>Refresh the page to return to the Main Menu.";
-        pgDot.visible = false;
-        pgLaser.visible = false;
-        return;
+    for (let i = 0; i < numPoints; i++) {
+        let angle = (i / numPoints) * Math.PI * 2;
+        // Position them in a circle on a virtual "table" below the probe
+        let x = Math.cos(angle) * radius;
+        let z = Math.sin(angle) * radius;
+        
+        let cpMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3, 16, 16),
+            new THREE.MeshBasicMaterial({color: 0x333333}) // Default inactive color
+        );
+        cpMesh.position.set(x, -3, z);
+        scene3D.add(cpMesh);
+        checkpoints.push(cpMesh);
     }
 
-    // Spawn Checkpoint Rings
-    points.forEach(p => {
-        const cp = new THREE.Mesh(
-            new THREE.RingGeometry(0.12, 0.18, 16), 
-            new THREE.MeshBasicMaterial({ color: 0xff4444, side: THREE.DoubleSide })
-        );
-        cp.rotation.x = -Math.PI / 2;
-        cp.position.copy(p);
-        cp.position.y = 0.01; 
-        cp.userData = { hit: false };
-        
-        scene3D.add(cp);
-        pgCheckpoints.push(cp);
-    });
+    createScoreUI();
+    resetGame();
+};
+
+// Dynamically injects a retro arcade score screen over the 3D view
+function createScoreUI() {
+    if (document.getElementById('pg-score-ui')) return;
+    
+    scoreOverlay = document.createElement('div');
+    scoreOverlay.id = 'pg-score-ui';
+    scoreOverlay.style.position = 'absolute';
+    scoreOverlay.style.top = '50%';
+    scoreOverlay.style.left = '50%';
+    scoreOverlay.style.transform = 'translate(-50%, -50%)';
+    scoreOverlay.style.backgroundColor = 'rgba(22, 27, 34, 0.95)';
+    scoreOverlay.style.padding = '40px';
+    scoreOverlay.style.borderRadius = '15px';
+    scoreOverlay.style.border = '2px solid #2ea043';
+    scoreOverlay.style.color = '#fff';
+    scoreOverlay.style.textAlign = 'center';
+    scoreOverlay.style.display = 'none';
+    scoreOverlay.style.zIndex = '1000';
+    scoreOverlay.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+    
+    scoreOverlay.innerHTML = `
+        <h2 style="margin-top:0; color: #44ff44; letter-spacing: 2px;">TRACE COMPLETE!</h2>
+        <div style="font-size: 24px; margin: 15px 0; color: #8b949e;">Time: <span id="pg-time">0.0</span>s</div>
+        <div style="font-size: 48px; font-weight: bold; margin-bottom: 25px; color: #58a6ff;">SCORE: <span id="pg-score">0</span></div>
+        <button onclick="resetGame()" style="font-size: 20px; padding: 15px 30px; background: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);">Play Again</button>
+    `;
+    
+    // Attach it right into the spatial view panel!
+    document.getElementById('spatial-view').appendChild(scoreOverlay);
 }
 
-// 7. THE GAME PHYSICS ENGINE
-window.animatePlayground = function() {
-    if (Tutorial.currentModule !== 'playground' || !pgProbe) return;
-
-    // Apply hardware rotation to the suspended probe
-    pgProbe.quaternion.copy(window.probeState.currentQuat);
-
-    // Raycast: Find where the bottom of the probe is pointing
-    let dir = new THREE.Vector3(0, -1, 0).applyQuaternion(pgProbe.quaternion);
+window.resetGame = function() {
+    currentCheckpointIndex = 0;
+    gameActive = true;
+    startTime = Date.now();
     
-    // Only shoot laser if the probe is pointing downwards towards the table
-    if (dir.y < -0.1) {
-        // Calculate intersection with the table (y = 0)
-        let t = -pgProbe.position.y / dir.y;
-        let intersect = new THREE.Vector3(pgProbe.position.x, pgProbe.position.y, pgProbe.position.z).add(dir.clone().multiplyScalar(t));
+    if (scoreOverlay) scoreOverlay.style.display = 'none';
+
+    // Reset all checkpoints to grey, and turn the first one yellow
+    checkpoints.forEach((cp, index) => {
+        cp.scale.set(1, 1, 1);
+        if (index === 0) {
+            cp.material.color.setHex(0xffff00); // Glowing Yellow
+        } else {
+            cp.material.color.setHex(0x333333); // Dim Grey
+        }
+    });
+};
+
+function finishGame() {
+    gameActive = false;
+    let timeTaken = (Date.now() - startTime) / 1000;
+    
+    // Scoring Algorithm: 15,000 base points. Lose 250 points for every second it takes!
+    let score = Math.max(0, Math.floor(15000 - (timeTaken * 250)));
+    
+    document.getElementById('pg-time').innerText = timeTaken.toFixed(1);
+    document.getElementById('pg-score').innerText = score.toLocaleString();
+    scoreOverlay.style.display = 'block';
+}
+
+// ==========================================
+// THE GAME LOOP (Called every frame by graphics.js)
+// ==========================================
+window.animatePlayground = function() {
+    // Only run if we are actually in Playground mode
+    if (Tutorial.currentModule !== 'playground' || !pgGroup) return;
+
+    // 1. Glides the probe to match your phone's physical hardware rotation
+    pgGroup.quaternion.copy(window.probeState.currentQuat);
+
+    if (!gameActive) return;
+
+    let activeCp = checkpoints[currentCheckpointIndex];
+    
+    // 2. Add a pulsing visual effect to the target you need to hit
+    if (activeCp) {
+        let scale = 1.0 + 0.15 * Math.sin(Date.now() * 0.005);
+        activeCp.scale.set(scale, scale, scale);
+    }
+
+    // 3. Fire the Raycaster (Collision Detection)
+    let probeWorldPos = new THREE.Vector3();
+    pgGroup.getWorldPosition(probeWorldPos);
+    
+    // Calculate the exact 3D vector the laser is pointing
+    let currentLaserDir = laserDirection.clone().applyQuaternion(pgGroup.quaternion).normalize();
+    raycaster.set(probeWorldPos, currentLaserDir);
+
+    // 4. Check if the laser intersected with the active checkpoint sphere
+    let intersects = raycaster.intersectObject(activeCp);
+    
+    if (intersects.length > 0) {
+        // HIT DETECTED!
+        activeCp.material.color.setHex(0x44ff44); // Turn it Success Green
+        activeCp.scale.set(1, 1, 1); 
         
-        pgDot.position.copy(intersect);
-        pgDot.visible = true;
-
-        // Stretch and angle the laser line perfectly
-        let dist = pgProbe.position.distanceTo(intersect);
-        pgLaser.scale.set(1, dist, 1);
-        pgLaser.position.copy(pgProbe.position).add(intersect).multiplyScalar(0.5);
-        pgLaser.quaternion.copy(pgProbe.quaternion); // Locks the laser perfectly to the probe's angle
-        pgLaser.visible = true;
-
-        // Draw the Tracing Trail
-        if (pgTrail.length === 0 || pgTrail[pgTrail.length-1].position.distanceTo(intersect) > 0.05) {
-            let dot = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.04, 0.04), 
-                new THREE.MeshBasicMaterial({ color: 0x58a6ff, side: THREE.DoubleSide })
-            );
-            dot.rotation.x = -Math.PI / 2;
-            dot.position.copy(intersect);
-            dot.position.y = 0.02; 
-            scene3D.add(dot);
-            pgTrail.push(dot);
-            
-            if(pgTrail.length > 150) {
-                let old = pgTrail.shift();
-                scene3D.remove(old);
-            }
+        currentCheckpointIndex++;
+        
+        // Did we hit the last one?
+        if (currentCheckpointIndex >= checkpoints.length) {
+            finishGame();
+        } else {
+            // If not, light up the next one in the circle!
+            checkpoints[currentCheckpointIndex].material.color.setHex(0xffff00);
         }
-
-        // Collision Detection
-        let allHit = true;
-        pgCheckpoints.forEach(cp => {
-            if (!cp.userData.hit) {
-                if (cp.position.distanceTo(intersect) < 0.2) {
-                    cp.userData.hit = true;
-                    cp.material.color.setHex(0x44ff44); // Turn it Green!
-                } else {
-                    allHit = false; 
-                }
-            }
-        });
-
-        if (allHit && pgCheckpoints.length > 0) {
-            pgCheckpoints = []; 
-            setTimeout(() => buildLevel(pgLevel + 1), 1000); 
-        }
-
-    } else {
-        pgDot.visible = false;
-        pgLaser.visible = false;
     }
 };

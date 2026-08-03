@@ -238,11 +238,29 @@ window.onload = () => {
 
     // 2. Fallback: Ably Cloud Relay (Host Presence Registered)
     try {
+        console.log("Attempting to connect laptop to Ably Cloud...");
         ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
+        
+        ablyRealtime.connection.on('connected', () => {
+            console.log("SUCCESS: Laptop connected to Ably Cloud!");
+        });
+
+        ablyRealtime.connection.on('failed', (tokenErr) => {
+            console.error("FAILED: Ably connection failed. School firewall may be blocking WebSockets.", tokenErr);
+            document.getElementById('status').innerText = 'Cloud Blocked by Firewall';
+            document.getElementById('status').style.color = '#ff4444';
+        });
+
         ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
 
         // Register host presence so probe can validate active session
-        ablyChannel.presence.enter('laptop-host');
+        ablyChannel.presence.enter('laptop-host', (err) => {
+            if (err) {
+                console.error("Presence Enter Error:", err);
+            } else {
+                console.log("SUCCESS: Laptop registered presence in room:", roomPIN);
+            }
+        });
 
         // Listen for fallback connections
         ablyChannel.presence.subscribe('enter', (member) => {
@@ -255,6 +273,6 @@ window.onload = () => {
             handleIncomingData(message.data);
         });
     } catch (err) {
-        console.error("Ably Init Error:", err);
+        console.error("Ably Init Exception:", err);
     }
 };
