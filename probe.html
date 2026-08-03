@@ -35,14 +35,12 @@
     </div>
 
     <script>
-        // Standard PeerJS Initialization
-        const peer = new Peer(); 
+        const peer = new Peer();
         let conn;
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
             conn = peer.connect('sim-hosp-' + pin);
-            
             document.getElementById('status').innerText = 'Connecting...';
 
             conn.on('open', () => {
@@ -50,6 +48,7 @@
                 document.getElementById('probe-screen').style.display = 'flex';
                 
                 conn.on('data', (data) => {
+                    // Hide the FIRE button when moving to Mod 2/3
                     if (data.command === 'sync_module') {
                         document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
                     }
