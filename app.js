@@ -193,7 +193,8 @@ const roomPIN = Math.floor(1000 + Math.random() * 9000);
 // >>> PASTE YOUR ABLY ROOT API KEY HERE <<<
 const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo'; 
 
-const realtime = new Ably.Realtime(ABLY_API_KEY);
+// Give the laptop a specific identity so it's allowed on the network
+const realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
 const channel = realtime.channels.get('sim-hosp-' + roomPIN);
 
 window.onload = () => {

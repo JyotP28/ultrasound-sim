@@ -45,14 +45,16 @@
             const pin = document.getElementById('pin-input').value;
             document.getElementById('status').innerText = 'Connecting to Cloud...';
             
-            // Connect to Ably Cloud
-            realtime = new Ably.Realtime(ABLY_API_KEY);
+           // Connect to Ably Cloud with a declared clientId
+            realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-controller' });
             channel = realtime.channels.get('sim-hosp-' + pin);
 
             // Announce presence (This triggers the 'PROBE CONNECTED' on the laptop)
             channel.presence.enter('probe', (err) => {
                 if (err) {
-                    document.getElementById('status').innerText = 'Connection Error';
+                    // This will print the actual error to the screen if it ever fails again!
+                    console.error(err);
+                    document.getElementById('status').innerText = 'Error: ' + err.message;
                     return;
                 }
                 
