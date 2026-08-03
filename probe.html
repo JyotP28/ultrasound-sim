@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Probe Controller</title>
-    <!-- Swap PeerJS for the Ably WebSockets Library -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         body { background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
@@ -36,43 +36,118 @@
     </div>
 
     <script>
-        // >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
         const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
-        
-        let realtime, channel;
+
+        let activeTransport = null; // 'p2p' or 'ably'
+        let p2pConn = null;
+        let ablyChannel = null;
+        let ablyRealtime = null;
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
-            document.getElementById('status').innerText = 'Connecting to Cloud...';
-            
-           // Connect to Ably Cloud with a declared clientId
-            realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-controller' });
-            channel = realtime.channels.get('sim-hosp-' + pin);
+            if (!pin) return;
 
-            // Announce presence (This triggers the 'PROBE CONNECTED' on the laptop)
-            channel.presence.enter('probe', (err) => {
-                if (err) {
-                    // This will print the actual error to the screen if it ever fails again!
-                    console.error(err);
-                    document.getElementById('status').innerText = 'Error: ' + err.message;
+            document.getElementById('status').innerText = 'Connecting via Direct P2P...';
+            document.getElementById('status').style.color = '#8b949e';
+
+            let fallbackTriggered = false;
+
+            const triggerAblyFallback = (reason) => {
+                if (fallbackTriggered || activeTransport === 'p2p') return;
+                fallbackTriggered = true;
+                console.log("P2P Unavailable (" + reason + "). Switching to Ably Relay...");
+                connectViaAbly(pin);
+            };
+
+            // --- ATTEMPT 1: DIRECT P2P (PEERJS) ---
+            try {
+                const peer = new Peer();
+
+                // 3-second window to establish direct P2P connection
+                const p2pTimeout = setTimeout(() => {
+                    peer.destroy();
+                    triggerAblyFallback('Timeout');
+                }, 3000);
+
+                peer.on('open', () => {
+                    p2pConn = peer.connect('sim-hosp-' + pin);
+
+                    p2pConn.on('open', () => {
+                        clearTimeout(p2pTimeout);
+                        activeTransport = 'p2p';
+                        onConnectedSuccess();
+                    });
+
+                    p2pConn.on('error', () => {
+                        clearTimeout(p2pTimeout);
+                        triggerAblyFallback('Connection error');
+                    });
+                });
+
+                peer.on('error', () => {
+                    clearTimeout(p2pTimeout);
+                    triggerAblyFallback('Peer error');
+                });
+            } catch (err) {
+                triggerAblyFallback('Init exception');
+            }
+        }
+
+        // --- ATTEMPT 2: CLOUD RELAY (ABLY) WITH HOST VALIDATION ---
+        function connectViaAbly(pin) {
+            document.getElementById('status').innerText = 'Connecting via Cloud Relay...';
+
+            ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
+            ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
+
+            // Room validation: Check if laptop-host is active in presence
+            ablyChannel.presence.get((err, members) => {
+                if (err || !members) {
+                    document.getElementById('status').innerText = 'Room lookup failed.';
+                    document.getElementById('status').style.color = '#ff4444';
                     return;
                 }
-                
-                document.getElementById('login-screen').style.display = 'none';
-                document.getElementById('probe-screen').style.display = 'flex';
-            });
 
-            // Listen for sync commands from the laptop
-            channel.subscribe('host-command', (message) => {
-                const data = message.data;
-                if (data.command === 'sync_module') {
-                    document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
+                const hostIsActive = members.some(m => m.clientId === 'laptop-host');
+
+                if (!hostIsActive) {
+                    document.getElementById('status').innerText = 'Invalid PIN or Host Not Active!';
+                    document.getElementById('status').style.color = '#ff4444';
+                    ablyRealtime.close();
+                    return;
                 }
+
+                // Host confirmed active -> Join room
+                ablyChannel.presence.enter('phone-probe', (enterErr) => {
+                    if (enterErr) {
+                        document.getElementById('status').innerText = 'Cloud Access Denied';
+                        document.getElementById('status').style.color = '#ff4444';
+                        return;
+                    }
+
+                    activeTransport = 'ably';
+                    onConnectedSuccess();
+
+                    ablyChannel.subscribe('host-command', (message) => {
+                        if (message.data && message.data.command === 'sync_module') {
+                            document.getElementById('fire-btn').style.display = (message.data.module === 1) ? 'flex' : 'none';
+                        }
+                    });
+                });
             });
         }
 
+        function onConnectedSuccess() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('probe-screen').style.display = 'flex';
+        }
+
         function firePulse() {
-            if (channel) channel.publish('sensor-data', { fire: true });
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send({ fire: true });
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', { fire: true });
+            }
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
@@ -89,16 +164,18 @@
             }
         }
 
-        // Throttle sensor sending to roughly 30 frames-per-second. 
-        // This keeps motion beautifully smooth while preventing you from blowing past Ably's free tier limits!
         let lastSendTime = 0;
         function handleOrientation(event) {
-            if (!channel) return;
-            
-            const now = Date.now();
-            if (now - lastSendTime > 30) { 
-                lastSendTime = now;
-                channel.publish('sensor-data', { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } });
+            const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
+
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send(data);
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                const now = Date.now();
+                if (now - lastSendTime > 30) {
+                    lastSendTime = now;
+                    ablyChannel.publish('sensor-data', data);
+                }
             }
         }
     </script>

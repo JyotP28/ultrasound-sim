@@ -171,10 +171,14 @@ const Tutorial = {
     },
 
     syncPhone: function() {
-        if (typeof channel !== 'undefined') {
-            let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
-            // Publish command to the Ably cloud for the phone to hear
-            channel.publish('host-command', { command: 'sync_module', module: modNum });
+        let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
+        const payload = { command: 'sync_module', module: modNum };
+
+        if (activeP2PConn && activeP2PConn.open) {
+            activeP2PConn.send(payload);
+        }
+        if (ablyChannel) {
+            ablyChannel.publish('host-command', payload);
         }
     },
 
@@ -186,55 +190,71 @@ const Tutorial = {
 };
 
 // ==========================================
-// NETWORK CONNECTION (ABLY CLOUD WEBSOCKETS)
+// HYBRID NETWORK ENGINE (P2P + ABLY FALLBACK)
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
-
-// >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
 const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo'; 
 
-// Declare the variables globally so the rest of the app can use them
-let realtime, channel;
+let peerHost = null;
+let activeP2PConn = null;
+let ablyRealtime = null;
+let ablyChannel = null;
 
-// window.onload guarantees the Ably library has finished downloading!
+function handleIncomingData(data) {
+    if (data.fire === true) {
+        Tutorial.evaluateAction('fire_pulse');
+        if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+    }
+    if (data.orientation) {
+        if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
+        if (typeof window.updateGlobalIMU === 'function') {
+            window.updateGlobalIMU(data.orientation);
+        }
+    }
+}
+
+function onProbeConnected(transportMode) {
+    document.getElementById('status').innerText = 'PROBE CONNECTED (' + transportMode + ')';
+    document.getElementById('status').style.color = '#44ff44';
+    document.getElementById('room-display').style.display = 'none'; 
+    
+    Tutorial.evaluateAction('connect');
+    Tutorial.syncPhone();
+}
+
 window.onload = () => {
-    // 1. Load the UI first
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
     Tutorial.init();
-    
-    // 2. Initialize Ably safely
-    try {
-        realtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
-        channel = realtime.channels.get('sim-hosp-' + roomPIN);
 
-        // Ably Presence: Detects when the phone enters the room channel
-        channel.presence.subscribe('enter', (member) => {
-            document.getElementById('status').innerText = 'PROBE CONNECTED';
-            document.getElementById('status').style.color = '#44ff44';
-            document.getElementById('room-display').style.display = 'none'; 
-            
-            Tutorial.evaluateAction('connect');
-            Tutorial.syncPhone();
+    // 1. Primary: PeerJS (Direct P2P)
+    peerHost = new Peer('sim-hosp-' + roomPIN);
+    peerHost.on('connection', (conn) => {
+        conn.on('open', () => {
+            activeP2PConn = conn;
+            onProbeConnected('Direct P2P');
+            conn.on('data', handleIncomingData);
+        });
+    });
+
+    // 2. Fallback: Ably Cloud Relay (Host Presence Registered)
+    try {
+        ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
+        ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
+
+        // Register host presence so probe can validate active session
+        ablyChannel.presence.enter('laptop-host');
+
+        // Listen for fallback connections
+        ablyChannel.presence.subscribe('enter', (member) => {
+            if (member.clientId === 'phone-probe' && !activeP2PConn) {
+                onProbeConnected('Cloud Relay');
+            }
         });
 
-        // Ably Subscription: Listens for sensor data flowing down from the cloud
-        channel.subscribe('sensor-data', (message) => {
-            const data = message.data;
-            
-            if (data.fire === true) {
-                Tutorial.evaluateAction('fire_pulse');
-                if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
-            }
-            
-            if (data.orientation) {
-                if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
-                if (typeof window.updateGlobalIMU === 'function') {
-                    window.updateGlobalIMU(data.orientation);
-                }
-            }
+        ablyChannel.subscribe('sensor-data', (message) => {
+            handleIncomingData(message.data);
         });
     } catch (err) {
-        console.error("Cloud Network Error:", err);
-        document.getElementById('room-display').innerText = "Network Error - Check Console";
+        console.error("Ably Init Error:", err);
     }
 };
