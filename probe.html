@@ -39,14 +39,10 @@
         // >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
         const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
 
-
         let activeTransport = null;
         let p2pConn = null;
         let ablyChannel = null;
         let ablyRealtime = null;
-
-        // 1. Pre-warm the WebRTC connection exactly like your original code!
-        const peer = new Peer();
 
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
@@ -60,53 +56,54 @@
             const triggerAblyFallback = (reason) => {
                 if (fallbackTriggered || activeTransport === 'p2p') return;
                 fallbackTriggered = true;
-                console.log("P2P Failed (" + reason + "). Switching to Ably Relay...");
+                
+                // DIAGNOSTIC: Print exactly WHY P2P failed onto the screen!
+                console.log("P2P Failed. Reason:", reason);
+                document.getElementById('status').innerText = 'Cloud Relay (' + reason + ')...';
+                
                 connectViaAbly(pin);
             };
 
-            // Give WebRTC 3.5 seconds to build the bridge
+            // Extend WebRTC timeout to 6 full seconds to allow for ICE routing
             const p2pTimeout = setTimeout(() => {
-                triggerAblyFallback('Timeout (3.5s)');
-            }, 3500);
+                triggerAblyFallback('Timeout');
+            }, 6000);
 
             try {
-                // THE FIX: Do not wait for events. Just fire the connection exactly like your old code did.
-                // PeerJS handles the queuing automatically!
-                p2pConn = peer.connect('sim-hosp-' + pin);
+                // Generate a fresh connection to avoid "stale" disconnections
+                const peer = new Peer();
 
-                p2pConn.on('open', () => {
-                    if (fallbackTriggered) return; // Prevent double-connections
-                    clearTimeout(p2pTimeout);
-                    activeTransport = 'p2p';
-                    onConnectedSuccess();
+                // Wait for the signaling server to give us a green light before dialing
+                peer.on('open', () => {
+                    p2pConn = peer.connect('sim-hosp-' + pin);
+
+                    p2pConn.on('open', () => {
+                        if (fallbackTriggered) return; 
+                        clearTimeout(p2pTimeout);
+                        activeTransport = 'p2p';
+                        onConnectedSuccess();
+                    });
+
+                    p2pConn.on('error', (err) => {
+                        clearTimeout(p2pTimeout);
+                        triggerAblyFallback('Data Error');
+                    });
                 });
 
-                p2pConn.on('error', (err) => {
+                // If PeerJS throws any error at all, pass the specific error type to Ably
+                peer.on('error', (err) => {
                     clearTimeout(p2pTimeout);
-                    triggerAblyFallback('Data connection error');
+                    triggerAblyFallback(err.type); 
                 });
-                
+
             } catch (err) {
                 clearTimeout(p2pTimeout);
-                triggerAblyFallback('Init exception');
+                triggerAblyFallback('Exception');
             }
         }
 
-        // Global error catcher: If the laptop is blocked on school Wi-Fi and didn't register its ID, 
-        // PeerJS throws a 'peer-unavailable' error here. We catch it and trigger the Cloud Relay!
-        peer.on('error', (err) => {
-            if (activeTransport !== 'p2p') {
-                console.log("P2P Unavailable. Forcing Cloud Relay...");
-                // Triggering a mock click of the fallback inside the error handler
-                const pin = document.getElementById('pin-input').value;
-                if (pin) connectViaAbly(pin);
-            }
-        });
-
         // --- ATTEMPT 2: CLOUD RELAY (ABLY) WITH HOST VALIDATION ---
         function connectViaAbly(pin) {
-            document.getElementById('status').innerText = 'Connecting via Cloud Relay...';
-
             ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
             ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
 
