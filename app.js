@@ -227,51 +227,59 @@ window.onload = () => {
     Tutorial.init();
 
     // 1. Primary: PeerJS (Direct P2P)
-    peerHost = new Peer('sim-hosp-' + roomPIN);
-    peerHost.on('connection', (conn) => {
-        conn.on('open', () => {
-            activeP2PConn = conn;
-            onProbeConnected('Direct P2P');
-            conn.on('data', handleIncomingData);
-        });
-    });
-
-    // 2. Fallback: Ably Cloud Relay (Host Presence Registered)
     try {
-        console.log("Attempting to connect laptop to Ably Cloud...");
+        peerHost = new Peer('sim-hosp-' + roomPIN);
+        peerHost.on('connection', (conn) => {
+            conn.on('open', () => {
+                activeP2PConn = conn;
+                onProbeConnected('Direct P2P');
+                conn.on('data', handleIncomingData);
+            });
+        });
+        // Silently catch PeerJS errors so they don't crash the Ably fallback
+        peerHost.on('error', (err) => console.warn("P2P Blocked, relying on Ably."));
+    } catch(e) {}
+
+    // 2. Fallback: Ably Cloud Relay
+    try {
         ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
         
+        // Wait for Ably to confirm connection before updating the UI
         ablyRealtime.connection.on('connected', () => {
-            console.log("SUCCESS: Laptop connected to Ably Cloud!");
+            ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
+            
+            // Attach to the channel and enter presence
+            ablyChannel.attach((err) => {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                
+                ablyChannel.presence.enter('laptop-host', (pErr) => {
+                    if (!pErr) {
+                        // THE FIX: Visually confirm the laptop is ready and waiting!
+                        document.getElementById('status').innerText = 'WAITING FOR PROBE...';
+                        document.getElementById('status').style.color = '#58a6ff'; // Bright Blue
+                    }
+                });
+                
+                ablyChannel.presence.subscribe('enter', (member) => {
+                    if (member.clientId === 'phone-probe' && !activeP2PConn) {
+                        onProbeConnected('Cloud Relay');
+                    }
+                });
+
+                ablyChannel.subscribe('sensor-data', (message) => {
+                    handleIncomingData(message.data);
+                });
+            });
         });
 
-        ablyRealtime.connection.on('failed', (tokenErr) => {
-            console.error("FAILED: Ably connection failed. School firewall may be blocking WebSockets.", tokenErr);
-            document.getElementById('status').innerText = 'Cloud Blocked by Firewall';
-            document.getElementById('status').style.color = '#ff4444';
+        ablyRealtime.connection.on('failed', () => {
+            document.getElementById('status').innerText = 'FIREWALL BLOCKED CLOUD';
+            document.getElementById('status').style.color = '#ff4444'; // Red
         });
-
-        ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
-
-        // Register host presence so probe can validate active session
-        ablyChannel.presence.enter('laptop-host', (err) => {
-            if (err) {
-                console.error("Presence Enter Error:", err);
-            } else {
-                console.log("SUCCESS: Laptop registered presence in room:", roomPIN);
-            }
-        });
-
-        // Listen for fallback connections
-        ablyChannel.presence.subscribe('enter', (member) => {
-            if (member.clientId === 'phone-probe' && !activeP2PConn) {
-                onProbeConnected('Cloud Relay');
-            }
-        });
-
-        ablyChannel.subscribe('sensor-data', (message) => {
-            handleIncomingData(message.data);
-        });
+        
     } catch (err) {
         console.error("Ably Init Exception:", err);
     }
