@@ -210,24 +210,12 @@ const Tutorial = {
 };
 
 // ==========================================
-// NETWORK CONNECTION & FIREWALL BYPASS
+// NETWORK CONNECTION (DEFAULT)
 // ==========================================
 const roomPIN = Math.floor(1000 + Math.random() * 9000); 
 
-const robustNetworkConfig = {
-    config: {
-        'iceServers': [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' },
-            { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'f9378627b0032b49b294028e3524810a90558bb92261ac24050a41d9e71b2651' }
-        ],
-        // THE MAGIC BULLET: This forces the data to bounce off the external server, 
-        // completely bypassing the school's Client Isolation firewall!
-        'iceTransportPolicy': 'relay' 
-    }
-};
-
-const peer = new Peer('sim-hosp-' + roomPIN, robustNetworkConfig);
+// Standard PeerJS Initialization
+const peer = new Peer('sim-hosp-' + roomPIN);
 
 window.onload = () => {
     document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
@@ -235,7 +223,7 @@ window.onload = () => {
 };
 
 peer.on('connection', conn => {
-    // THE FALSE POSITIVE FIX: Wait until the bridge is actually built to say "Connected"!
+    // The False Positive fix is retained to ensure proper syncing
     conn.on('open', () => {
         activeConnection = conn; 
         document.getElementById('status').innerText = 'PROBE CONNECTED';
@@ -251,6 +239,8 @@ peer.on('connection', conn => {
             Tutorial.evaluateAction('fire_pulse');
             if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
         }
+        
+        // The IMU Routing runs successfully
         if (data.orientation) {
             if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
             if (typeof window.updateGlobalIMU === 'function') {
