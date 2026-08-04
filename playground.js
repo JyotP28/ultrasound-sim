@@ -245,7 +245,10 @@ function finishGame() {
 window.animatePlayground = function() {
     if (Tutorial.currentModule !== 'playground' || !pgGroup) return;
 
-    pgGroup.quaternion.copy(window.probeState.currentQuat);
+    // THE FIX: "Slerp" acts as a digital shock absorber!
+    // Instead of instantly snapping to the raw data, it smoothly glides 40% of the way there every frame. 
+    // This completely hides network stutters and human hand tremors!
+    pgGroup.quaternion.slerp(window.probeState.currentQuat, 0.4);
 
     if (gameActive) {
         let timeTaken = (Date.now() - startTime) / 1000;
@@ -275,7 +278,6 @@ window.animatePlayground = function() {
         let hit = floorIntersects[0];
         laserMesh.scale.y = hit.distance;
         
-        // This function now dynamically draws BOTH trails at once!
         updateTrail(hit.point);
         
         radarCursor.position.set(hit.point.x * RADAR_SCALE, -hit.point.z * RADAR_SCALE, 0.1);

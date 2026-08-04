@@ -183,26 +183,35 @@
             latestOrientation = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
         }
 
-        // 4. THE METRONOME (Runs completely independently to guarantee a smooth framerate)
+        // 4. THE METRONOME (Upgraded to 60 FPS Hardware Sync)
+        let animationFrameId = null;
+        let lastP2PSendTime = 0;
+
         function startDataLoop() {
-            if (dataLoop) clearInterval(dataLoop);
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             
-            dataLoop = setInterval(() => {
-                if (!latestOrientation) return;
-                
-                const data = { orientation: latestOrientation };
-                
-                if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                    // P2P is fast and free. We pump it at exactly 50 Frames Per Second (20ms).
-                    p2pConn.send(data);
-                } else if (activeTransport === 'ably' && ablyChannel) {
-                    // Ably is throttled locally inside this loop to preserve your quotas (~25 FPS)
+            function loop() {
+                if (latestOrientation) {
                     const now = Date.now();
-                    if (now - lastAblySendTime > 40) {
-                        ablyChannel.publish('sensor-data', data);
-                        lastAblySendTime = now;
+                    
+                    // Lock P2P perfectly to 60 Frames Per Second (16ms)
+                    if (now - lastP2PSendTime >= 16) { 
+                        const data = { orientation: latestOrientation };
+                        
+                        if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                            p2pConn.send(data);
+                        } else if (activeTransport === 'ably' && ablyChannel) {
+                            if (now - lastAblySendTime > 40) { // Keep Ably throttled to save quota
+                                ablyChannel.publish('sensor-data', data);
+                                lastAblySendTime = now;
+                            }
+                        }
+                        lastP2PSendTime = now;
                     }
                 }
-            }, 20); // 20 milliseconds = perfectly paced 50 FPS
+                // requestAnimationFrame completely eliminates timer drift by syncing with the screen!
+                animationFrameId = requestAnimationFrame(loop);
+            }
+            loop();
         }
     </script>
