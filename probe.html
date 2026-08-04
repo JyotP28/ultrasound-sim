@@ -56,25 +56,18 @@
             const triggerAblyFallback = (reason) => {
                 if (fallbackTriggered || activeTransport === 'p2p') return;
                 fallbackTriggered = true;
-                
-                // DIAGNOSTIC: Print exactly WHY P2P failed onto the screen!
                 console.log("P2P Failed. Reason:", reason);
                 document.getElementById('status').innerText = 'Cloud Relay (' + reason + ')...';
-                
                 connectViaAbly(pin);
             };
 
-            // Extend WebRTC timeout to 6 full seconds to allow for ICE routing
-            const p2pTimeout = setTimeout(() => {
-                triggerAblyFallback('Timeout');
-            }, 6000);
+            const p2pTimeout = setTimeout(() => { triggerAblyFallback('Timeout'); }, 6000);
 
             try {
-                // Generate a fresh connection to avoid "stale" disconnections
                 const peer = new Peer();
 
-                // Wait for the signaling server to give us a green light before dialing
                 peer.on('open', () => {
+                    // 1. REVERT: Removed { reliable: false } to guarantee chronological packet order
                     p2pConn = peer.connect('sim-hosp-' + pin);
 
                     p2pConn.on('open', () => {
@@ -90,7 +83,6 @@
                     });
                 });
 
-                // If PeerJS throws any error at all, pass the specific error type to Ably
                 peer.on('error', (err) => {
                     clearTimeout(p2pTimeout);
                     triggerAblyFallback(err.type); 
@@ -102,7 +94,7 @@
             }
         }
 
-        // --- ATTEMPT 2: CLOUD RELAY (ABLY) WITH HOST VALIDATION ---
+        // --- CLOUD RELAY FALLBACK ---
         function connectViaAbly(pin) {
             ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
             ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
@@ -164,31 +156,53 @@
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
+        // 2. DECOUPLED INPUT VARIABLES
+        let latestOrientation = null;
+        let dataLoop = null;
+        let lastAblySendTime = 0;
+
         function startMotion() {
             document.getElementById('gyro-btn').innerText = "MOTION ACTIVE";
             document.getElementById('gyro-btn').style.backgroundColor = "#238636";
             
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission().then(permissionState => {
-                    if (permissionState === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation);
+                        startDataLoop();
+                    }
                 }).catch(console.error);
             } else {
                 window.addEventListener('deviceorientation', handleOrientation);
+                startDataLoop();
             }
         }
 
-        let lastSendTime = 0;
+        // 3. THE SENSOR LOGIC (Instantly captures the absolute newest data, but doesn't send it!)
         function handleOrientation(event) {
-            const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
+            latestOrientation = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
+        }
 
-            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                p2pConn.send(data);
-            } else if (activeTransport === 'ably' && ablyChannel) {
-                const now = Date.now();
-                if (now - lastSendTime > 30) {
-                    lastSendTime = now;
-                    ablyChannel.publish('sensor-data', data);
+        // 4. THE METRONOME (Runs completely independently to guarantee a smooth framerate)
+        function startDataLoop() {
+            if (dataLoop) clearInterval(dataLoop);
+            
+            dataLoop = setInterval(() => {
+                if (!latestOrientation) return;
+                
+                const data = { orientation: latestOrientation };
+                
+                if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                    // P2P is fast and free. We pump it at exactly 50 Frames Per Second (20ms).
+                    p2pConn.send(data);
+                } else if (activeTransport === 'ably' && ablyChannel) {
+                    // Ably is throttled locally inside this loop to preserve your quotas (~25 FPS)
+                    const now = Date.now();
+                    if (now - lastAblySendTime > 40) {
+                        ablyChannel.publish('sensor-data', data);
+                        lastAblySendTime = now;
+                    }
                 }
-            }
+            }, 20); // 20 milliseconds = perfectly paced 50 FPS
         }
     </script>

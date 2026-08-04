@@ -175,9 +175,10 @@ const Tutorial = {
         const payload = { command: 'sync_module', module: modNum };
 
         if (activeP2PConn && activeP2PConn.open) {
+            // 1. Send ONLY via Direct P2P (Costs 0 quota)
             activeP2PConn.send(payload);
-        }
-        if (ablyChannel) {
+        } else if (ablyChannel) {
+            // 2. ONLY use Cloud Relay if P2P is broken or missing
             ablyChannel.publish('host-command', payload);
         }
     },
