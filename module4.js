@@ -1,15 +1,21 @@
 // ==========================================
 // MODULE 4: PROBE MANIPULATION (Angles & 3D Anatomy)
 // ==========================================
+
 let mod4ProbePlane, mod4UsMaterial;
 
 window.loadModule4 = function() {
+    console.log("Loading Module 4 (3D Anatomy Engine)...");
+
+    // 1. SAFELY CLEAR PREVIOUS MODULE
     while(scene3D.children.length > 0) { scene3D.remove(scene3D.children[0]); }
     while(sceneUS.children.length > 0) { sceneUS.remove(sceneUS.children[0]); }
     
     const phantomBox = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshBasicMaterial({ color: 0x555555, wireframe: true }));
     scene3D.add(phantomBox);
 
+    // 2. 3D PHYSICAL ANATOMY
+    // Dark red cylinder lying flat to represent the blood vessel
     const vessel3D = new THREE.Mesh(
         new THREE.CylinderGeometry(0.22, 0.22, 2, 32),
         new THREE.MeshBasicMaterial({ color: 0xaa0000, transparent: true, opacity: 0.3 }) 
@@ -18,6 +24,7 @@ window.loadModule4 = function() {
     vessel3D.position.set(-0.3, -0.3, 0); 
     scene3D.add(vessel3D);
 
+    // Bright white sphere hidden inside the vessel for the clot
     const clot3D = new THREE.Mesh(
         new THREE.SphereGeometry(0.1, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
@@ -25,8 +32,10 @@ window.loadModule4 = function() {
     clot3D.position.set(-0.3, -0.3, 0.5); 
     scene3D.add(clot3D);
 
+    // 3. CURVILINEAR PROBE ASSEMBLY
     mod4ProbePlane = new THREE.Group();
     
+    // Using RingGeometry to create a perfect cone-slice that matches the UI monitor
     const planeGeo = new THREE.RingGeometry(0.1, 2, 32, 1, -Math.PI/2 - 0.5, 1.0);
     mod4ProbePlane.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })));
     
@@ -41,6 +50,7 @@ window.loadModule4 = function() {
     mod4ProbePlane.position.set(0, 1.0, 0); 
     scene3D.add(mod4ProbePlane);
 
+    // 4. PROCEDURAL SHADER GENERATION
     const size = 64; 
     const volumeData = new Uint8Array(size * size * size);
     for (let z = 0; z < size; z++) {
@@ -53,9 +63,9 @@ window.loadModule4 = function() {
                 
                 let density = 100; 
                 if (Math.pow(nx + 0.3, 2) + Math.pow(ny + 0.3, 2) < 0.05) {
-                    density = 0; 
+                    density = 0; // Black fluid (Blood)
                     if (Math.pow(nx + 0.3, 2) + Math.pow(ny + 0.3, 2) + Math.pow(nz - 0.5, 2) < 0.004) {
-                        density = 255; 
+                        density = 255; // Bright White Clot
                     }
                 }
                 volumeData[index] = density;
@@ -93,6 +103,7 @@ window.loadModule4 = function() {
     sceneUS.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mod4UsMaterial));
 };
 
+// 5. THE EVALUATION LOOP
 window.animateMod4 = function() {
     if (window.Tutorial && window.Tutorial.currentModule === 4 && mod4ProbePlane) {
         mod4ProbePlane.position.set(0, 1.0, 0);
@@ -107,14 +118,21 @@ window.animateMod4 = function() {
         const euler = new THREE.Euler().setFromQuaternion(mod4ProbePlane.quaternion, 'YXZ');
         
         if (window.Tutorial.evaluateAction) {
-            if (window.Tutorial.currentStep === 1 && Math.abs(euler.z) > 0.15) {
+            // THE FIX: Reordered to match Fanning -> Rocking -> Rotating!
+            
+            // Step 1: FANNING (Forward/Back = X Axis Pitch)
+            if (window.Tutorial.currentStep === 1 && Math.abs(euler.x) > 0.15) {
+                window.Tutorial.evaluateAction('fan_clot');
+            }
+            
+            // Step 2: ROCKING (Side-to-Side = Z Axis Roll)
+            if (window.Tutorial.currentStep === 2 && Math.abs(euler.z) > 0.15) {
                 window.Tutorial.evaluateAction('rock_center');
             }
-            if (window.Tutorial.currentStep === 2 && Math.abs(euler.y) > 1.0) {
+            
+            // Step 3: ROTATING (Twisting = Y Axis Yaw)
+            if (window.Tutorial.currentStep === 3 && Math.abs(euler.y) > 1.0) {
                 window.Tutorial.evaluateAction('rotate_long');
-            }
-            if (window.Tutorial.currentStep === 3 && Math.abs(euler.y) > 1.0 && euler.x > 0.15) {
-                window.Tutorial.evaluateAction('fan_clot');
             }
         }
     }

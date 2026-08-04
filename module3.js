@@ -4,21 +4,27 @@
 let mod3ProbePlane, mod3UsMaterial, mod3BluePlane;
 
 window.loadModule3 = function() {
+    console.log("Loading Module 3 (Dynamic Depth & 3D Target)...");
+
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
     
+    // Taller box for deep tissue
     const phantomBox = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 2), new THREE.MeshBasicMaterial({ color: 0x555555, wireframe: true }));
     phantomBox.position.y = -0.5;
     scene3D.add(phantomBox);
 
+    // NEW: 3D Physical Representation of the Hidden Mass
     const deepTarget3D = new THREE.Mesh(
         new THREE.SphereGeometry(0.25, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, wireframe: true })
     );
+    // Positioned physically at the bottom of the box matching the procedural generation
     deepTarget3D.position.set(0, -1.7, 0); 
     scene3D.add(deepTarget3D);
 
     mod3ProbePlane = new THREE.Group();
+    // NEW: Curvilinear Cone Geometry!
     const planeGeo = new THREE.RingGeometry(0.1, 2, 32, 1, -Math.PI/2 - 0.5, 1.0);
     mod3BluePlane = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 }));
     mod3ProbePlane.add(mod3BluePlane);
@@ -45,6 +51,7 @@ window.loadModule3 = function() {
                 const nz = (z / size) * 2 - 1;
                 let density = 100; 
                 
+                // Deep target mapping
                 if (Math.sqrt(Math.pow(nx, 2) + Math.pow(ny + 0.8, 2) + Math.pow(nz, 2)) < 0.2) density = 255; 
                 volumeData[index] = density;
             }
@@ -90,13 +97,9 @@ window.loadModule3 = function() {
 };
 
 window.animateMod3 = function() {
-    if (window.Tutorial && window.Tutorial.currentModule === 3 && mod3ProbePlane) {
+    if (Tutorial.currentModule === 3 && mod3ProbePlane) {
         mod3ProbePlane.position.set(0, 1.0, 0);
-
-        if (window.probeState.currentQuat && window.probeState.currentQuat.isQuaternion) {
-            mod3ProbePlane.quaternion.copy(window.probeState.currentQuat);
-        }
-
+        mod3ProbePlane.quaternion.copy(window.probeState.currentQuat);
         mod3ProbePlane.updateMatrixWorld();
         mod3UsMaterial.uniforms.u_matrix.value.copy(mod3ProbePlane.matrixWorld);
 
@@ -107,7 +110,13 @@ window.animateMod3 = function() {
 };
 
 window.updateMod3Freq = function(freq) {
-    if (mod3UsMaterial) mod3UsMaterial.uniforms.u_frequency.value = parseFloat(freq);
-    const textTarget = document.querySelector('.top-right');
-    if (textTarget) textTarget.innerHTML = `Probe: Curvilinear<br>Freq: ${parseFloat(freq).toFixed(1)} MHz`;
+    let f = parseFloat(freq);
+    if (mod3UsMaterial) mod3UsMaterial.uniforms.u_frequency.value = f;
+    document.querySelector('.top-right').innerHTML = `Probe: Curvilinear<br>Freq: ${f.toFixed(1)} MHz`;
+
+    // THE FIX: Tell the curriculum engine if they hit the target frequency!
+    if (window.Tutorial) {
+        if (f >= 11.5) window.Tutorial.evaluateAction('freq_high');
+        if (f <= 3.5) window.Tutorial.evaluateAction('freq_low');
+    }
 };

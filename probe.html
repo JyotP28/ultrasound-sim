@@ -31,17 +31,13 @@
         <div id="status">Waiting for connection...</div>
     </div>
 
-    <div id="probe-screen" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
-        <h2 style="color: #58a6ff; margin-bottom: 30px; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5);">PROBE CONNECTED</h2>
+    <div id="probe-screen" class="screen">
+        <h2>Transducer Active</h2>
+        <!-- THE FIX: The Safe Zero Probe Button -->
+        <button onclick="recenterProbe()" style="background-color: #1f6feb; width: 100%; max-width: 300px; margin-bottom: 20px;">⌖ ZERO PROBE</button>
         
-        <!-- SENSOR CONTROLS ONLY -->
-        <button id="gyro-btn" onclick="startMotion()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #8b949e; color: white; font-weight: bold; margin-bottom: 20px; width: 80%;">
-            Enable Motion Sensors
-        </button>
-        
-        <button id="fire-btn" onclick="firePulse()" style="padding: 20px 40px; font-size: 24px; border-radius: 50px; border: none; background-color: #ff4444; color: white; font-weight: bold; box-shadow: 0 10px 30px rgba(255, 68, 68, 0.5); display: none;">
-            FIRE PULSE
-        </button>
+        <button id="gyro-btn" onclick="startMotion()">1. ENABLE MOTION</button>
+        <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
@@ -167,6 +163,15 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('probe-screen').style.display = 'flex';
             enableWakeLock();
+        }
+
+        function recenterProbe() {
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send({ command: 'recenter' });
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', { command: 'recenter' });
+            }
+            if (navigator.vibrate) navigator.vibrate(50);
         }
 
         function firePulse() {

@@ -95,7 +95,7 @@ function animate() {
     // THE FIX: The Buttery Smooth Shock Absorber is Back!
     // It glides 40% of the way to the target every single frame, eliminating all jitter.
     if (window.probeState.currentQuat && window.probeState.targetQuat && window.probeState.currentQuat.isQuaternion) {
-        window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.4);
+        window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.1);
     }
 
     if (window.Tutorial && window.Tutorial.currentModule === 1 && mod1Group) {

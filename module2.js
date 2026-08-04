@@ -11,6 +11,8 @@ window.loadModule2 = function() {
     scene3D.add(phantomBox);
 
     mod2ProbePlane = new THREE.Group();
+   // NEW: Curvilinear Cone Geometry!
+    // RingGeometry(innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength)
     const planeGeo = new THREE.RingGeometry(0.1, 2, 32, 1, -Math.PI/2 - 0.5, 1.0);
     mod2ProbePlane.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: 0x2196f3, side: THREE.DoubleSide, transparent: true, opacity: 0.25 })));
 
@@ -57,11 +59,13 @@ window.loadModule2 = function() {
             void main() {
                 vec2 center = vec2(0.5, 1.0); float dist = distance(vUv, center); vec2 dir = vUv - center; float angle = atan(dir.x, -dir.y);
                 
+                // Cone Shape Mask (Stays perfectly symmetrical)
                 if (abs(angle) > 0.5 || dist > 0.9 || dist < 0.05) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
                 
                 vec4 worldPos = u_matrix * vec4((vUv.x * 2.0) - 1.0, (vUv.y * 2.0) - 2.0, 0.0, 1.0);
                 vec3 texCoord = worldPos.xyz * 0.5 + 0.5;
                 
+                // FIXED: Removed the bounding box clipping that was destroying the cone shape!
                 float density = texture(u_volume, texCoord).r;
                 float grain = fract(sin(dot(vUv.xy, vec2(12.9898,78.233))) * 43758.5453123) * 0.2;
                 float finalColor = density + grain;
@@ -74,20 +78,15 @@ window.loadModule2 = function() {
 };
 
 window.animateMod2 = function() {
-    if (window.Tutorial && window.Tutorial.currentModule === 2 && mod2ProbePlane) {
+    if (Tutorial.currentModule === 2 && mod2ProbePlane) {
         mod2ProbePlane.position.set(0, 1.0, 0);
-        
-        if (window.probeState.currentQuat && window.probeState.currentQuat.isQuaternion) {
-            mod2ProbePlane.quaternion.copy(window.probeState.currentQuat);
-        }
-        
+        mod2ProbePlane.quaternion.copy(window.probeState.currentQuat);
         mod2ProbePlane.updateMatrixWorld();
+        
         mod2UsMaterial.uniforms.u_matrix.value.copy(mod2ProbePlane.matrixWorld);
 
         const currentEuler = new THREE.Euler().setFromQuaternion(mod2ProbePlane.quaternion);
-        if (window.Tutorial.evaluateAction) {
-            if (currentEuler.z > 0.15) window.Tutorial.evaluateAction('find_fluid');
-            if (currentEuler.z < -0.15) window.Tutorial.evaluateAction('find_bone');
-        }
+        if (currentEuler.z > 0.15) Tutorial.evaluateAction('find_fluid');
+        if (currentEuler.z < -0.15) Tutorial.evaluateAction('find_bone');
     }
 };
