@@ -179,6 +179,7 @@
         }
 
         // --- HARDWARE SENSORS (ZERO LATENCY, SAFE MATH) ---
+        let lastP2PSendTime = 0;
         let lastAblySendTime = 0;
 
         function startMotion() {
@@ -201,12 +202,16 @@
                 return;
             }
 
+            const now = Date.now();
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                p2pConn.send(data);
+                // 60Hz Throttle: Prevents WebRTC packet-clumping!
+                if (now - lastP2PSendTime > 16) {
+                    p2pConn.send(data);
+                    lastP2PSendTime = now;
+                }
             } else if (activeTransport === 'ably' && ablyChannel) {
-                const now = Date.now();
                 if (now - lastAblySendTime > 33) {
                     ablyChannel.publish('sensor-data', data);
                     lastAblySendTime = now;

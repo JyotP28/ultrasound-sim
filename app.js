@@ -1,208 +1,29 @@
 // ==========================================
-// THE TUTORIAL ENGINE (LMS Navigation)
+// APP.JS - MASTER ENGINE & NETWORK HOST
 // ==========================================
 
-window.startSimulator = function() {
-    Tutorial.currentModule = 1;
-    Tutorial.currentStep = 1;
-    Tutorial.init();
-    
-    const landing = document.getElementById('landing-page');
-    landing.style.opacity = '0';
-    setTimeout(() => { landing.style.display = 'none'; }, 500);
+// >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
+const ABLY_API_KEY = 'Pa2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
+
+window.probeState = {
+    currentQuat: new THREE.Quaternion()
 };
 
-window.startPlayground = function() {
-    Tutorial.currentModule = 'playground'; 
-    
-    document.getElementById('hud-title').innerText = "Playground: Laser Trace";
-    document.getElementById('step-count').innerText = "∞";
-    document.getElementById('hud-instructions').innerText = "Level 1: The Circle";
-    document.getElementById('edu-details').innerHTML = "Hold your phone completely upright like an ultrasound probe.<br><br>Pitch and Roll your wrist to steer the red laser dot over all the checkpoints on the table to trace the shape!";
-    
-    document.getElementById('btn-prev').style.display = 'none';
-    document.getElementById('btn-next').disabled = true;
-    document.getElementById('btn-next').innerText = "Game Active";
-
-    const freqConsole = document.getElementById('console-freq');
-    if (freqConsole) freqConsole.style.display = 'none';
-
-    const landing = document.getElementById('landing-page');
-    landing.style.opacity = '0';
-    setTimeout(() => { landing.style.display = 'none'; }, 500);
-
-    if (typeof loadPlayground === 'function') loadPlayground();
-    Tutorial.syncPhone();
-};
-
-const Tutorial = {
-    currentModule: 1,
-    currentStep: 1,
-    lastLoadedModule: 0, 
-    
-    syllabus: {
-        1: {
-            title: "Module 1: The Pulse-Echo",
-            steps: {
-                1: { text: "What is Ultrasound?", details: "Human hearing operates between 20 and 20,000 Hertz. Ultrasound is simply sound waves that are above the hearing threshold. Diagnostic medical ultrasound typically uses frequencies ranging from one to twenty plus megahertz.\n\nTo begin, enter the Room PIN into your Smartphone to connect.", action: "connect" },
-                2: { text: "The Transducer as a Speaker", details: "The ultrasound machine works similarly to a speaker. It uses electrical energy to produce sound waves inside the transducer. Some of these sound waves reflect off of the patient's tissues and are transmitted back.\n\nPress the 'FIRE PULSE' button on your phone.", action: "fire_pulse" },
-                3: { text: "Forming the Image", details: "The transducer converts the returning sound waves back into electrical energy, which is processed to form a visual scan line on the monitor below.\n\nPress 'FIRE PULSE' again to observe the returning echoes drawing the scan lines.", action: "fire_pulse" },
-                4: { text: "Understanding Depth", details: "Depth is a function of distance to the ultrasound machine. The longer it takes a wave to return to the machine, the deeper it had to penetrate into the tissues, and the ultrasound machine knows to place those echoes deep in the scan line.\n\nClick Next to begin Module 2.", action: null } 
-            },
-            totalSteps: 4
-        },
-        2: {
-            title: "Module 2: Echogenicity",
-            steps: {
-                1: { text: "Understanding Brightness", details: "Brightness is the volume, or the intensity, of the returning echo. The louder the returning echo, the brighter it will appear. The quieter the returning echo, the less bright it will appear.\n\nImagine the BOTTOM of your phone is the transducer face making contact with the patient. Enable Motion on your phone.", action: "sweep_start" },
-                2: { text: "Anechoic Tissues (Fluid)", details: "Using the bottom of your phone as the pivot point, fan the bottom edge LEFT to angle your beam toward the black circular shape. This is an 'Anechoic' structure, like a fluid-filled cyst. Sound passes completely through fluid without reflecting back.", action: "find_fluid" },
-                3: { text: "Hyperechoic Tissues (Bone)", details: "Now fan the bottom of your phone RIGHT to find the solid white block. This is a 'Hyperechoic' structure, like bone. Dense objects reflect almost all sound waves back immediately, creating a massive amplitude (bright white).", action: "find_bone" }
-            },
-            totalSteps: 3   
-        },
-        3: {
-            title: "Module 3: Frequency vs Penetration",
-            steps: {
-                1: { text: "The Core Trade-off", details: "Frequency is inversely proportional to wavelength. Higher frequencies improve resolution (a prettier picture) but cannot penetrate deeply into tissue.\n\nLook at the monitor. The top of the tissue is beautifully clear, but the bottom is entirely black. Click Next.", action: null },
-                2: { text: "Lowering the Frequency", details: "To see deeper structures, we must decrease the frequency. This allows sound to penetrate further, but sacrifices detail.\n\nSlide the FREQUENCY on this computer down to 3.0 MHz to find the deep target.", action: "lower_frequency" }
-            },
-            totalSteps: 2
-        },
-        4: {
-            title: "Module 4: Probe Manipulation",
-            steps: {
-                1: { text: "Rocking (Heel-to-Toe)", details: "Rocking involves angling the transducer along its long axis (tilting side-to-side).\n\nThere is a blood vessel deep in this tissue, but it is currently off-center to the left. Tilt your phone side-to-side (Rocking) to sweep the beam and find the circular vessel.<br><div class='diagram-container'><div class='diagram-phone diagram-rock'></div></div>", action: "rock_center" },
-                2: { text: "Rotating (Twisting)", details: "Rotating involves twisting the transducer around its vertical axis. This changes your view from a transverse (cross-section) to a longitudinal (long-axis) view.\n\nTwist your phone 90 degrees to turn the circular vessel into a long, tubular highway.<br><div class='diagram-container'><div class='diagram-phone diagram-rotate'></div></div>", action: "rotate_long" },
-                3: { text: "Fanning (Sweeping)", details: "Fanning involves angling the transducer along its short axis (tilting forward or backward).\n\nNow that you have a longitudinal view, tilt the top of the phone forward (Fanning) to angle the beam down the length of the vessel and find the bright white blood clot.<br><div class='diagram-container'><div class='diagram-phone diagram-fan'></div></div>", action: "fan_clot" }
-            },
-            totalSteps: 3
-        }
-    },
-
-    init: function() { this.updateHUD(); },
-
-    updateHUD: function() {
-        if (this.lastLoadedModule !== this.currentModule) {
-            this.loadGraphicsForCurrentModule();
-            this.lastLoadedModule = this.currentModule;
-        }
-
-        const mod = this.syllabus[this.currentModule];
-        if (!mod) return;
-        
-        document.getElementById('hud-title').innerText = mod.title;
-        document.getElementById('step-count').innerText = this.currentStep;
-        document.getElementById('hud-instructions').innerText = mod.steps[this.currentStep].text;
-        document.getElementById('edu-details').innerHTML = mod.steps[this.currentStep].details.replace(/\n/g, '<br>');
-
-        const freqConsole = document.getElementById('console-freq');
-        if (freqConsole) {
-            freqConsole.style.opacity = (this.currentModule === 3) ? '1' : '0';
-            freqConsole.style.pointerEvents = (this.currentModule === 3) ? 'auto' : 'none';
-        }
-
-        const btnPrev = document.getElementById('btn-prev');
-        const btnNext = document.getElementById('btn-next');
-        
-        btnPrev.disabled = (this.currentModule === 1 && this.currentStep === 1);
-        
-        if (this.currentStep === mod.totalSteps && !this.syllabus[this.currentModule + 1]) {
-            btnNext.disabled = true;
-            btnNext.innerText = "Course Complete";
-        } else {
-            if (mod.steps[this.currentStep].action) {
-                btnNext.disabled = true;
-                btnNext.innerText = "Awaiting Action...";
-                btnNext.style.backgroundColor = ""; 
-                btnNext.style.borderColor = "";
-            } else {
-                btnNext.disabled = false;
-                btnNext.innerText = "Next \u2192";
-                btnNext.style.backgroundColor = "";
-            }
-        }
-    },
-
-    evaluateAction: function(actionType) {
-        const mod = this.syllabus[this.currentModule];
-        if (!mod || !mod.steps || !mod.steps[this.currentStep]) return; 
-
-        if (actionType === mod.steps[this.currentStep].action) {
-            const btnNext = document.getElementById('btn-next');
-            btnNext.disabled = false;
-            btnNext.innerText = "Next \u2192";
-            btnNext.style.backgroundColor = "#238636"; 
-            btnNext.style.borderColor = "#2ea043";
-        }
-    },
-
-    goForward: function() {
-        const mod = this.syllabus[this.currentModule];
-        if (this.currentStep < mod.totalSteps) {
-            this.currentStep++;
-            this.updateHUD();
-        } else {
-            if (this.syllabus[this.currentModule + 1]) {
-                this.currentModule++;
-                this.currentStep = 1;
-                this.updateHUD(); 
-            }
-        }
-        this.syncPhone();
-    },
-
-    goBack: function() {
-        if (this.currentStep > 1) {
-            this.currentStep--;
-            this.updateHUD();
-        } else if (this.currentModule > 1) {
-            this.currentModule--;
-            this.currentStep = this.syllabus[this.currentModule].totalSteps;
-            this.updateHUD(); 
-        }
-        this.syncPhone();
-    },
-
-    loadGraphicsForCurrentModule: function() {
-        if (this.currentModule === 1 && typeof loadModule1 === 'function') loadModule1(); 
-        if (this.currentModule === 2 && typeof loadModule2 === 'function') loadModule2();
-        if (this.currentModule === 3 && typeof loadModule3 === 'function') loadModule3();
-        if (this.currentModule === 4 && typeof loadModule4 === 'function') loadModule4(); 
-    },
-
-    syncPhone: function() {
-        let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
-        const payload = { command: 'sync_module', module: modNum };
-
-        if (activeP2PConn && activeP2PConn.open) {
-            // 1. Send ONLY via Direct P2P (Costs 0 quota)
-            activeP2PConn.send(payload);
-        } else if (ablyChannel) {
-            // 2. ONLY use Cloud Relay if P2P is broken or missing
-            ablyChannel.publish('host-command', payload);
-        }
-    },
-
-    setFrequency: function(val) {
-        document.getElementById('freq-val').innerText = parseFloat(val).toFixed(1);
-        if (typeof updateMod3Freq === 'function') updateMod3Freq(val);
-        if (val <= 4.0) this.evaluateAction('lower_frequency');
-    }
-};
-
-// ==========================================
-// HYBRID NETWORK ENGINE (P2P + ABLY FALLBACK)
-// ==========================================
-const roomPIN = Math.floor(1000 + Math.random() * 9000); 
-const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo'; 
-
-let peerHost = null;
+let roomPIN = Math.floor(1000 + Math.random() * 9000).toString();
 let activeP2PConn = null;
-let ablyRealtime = null;
 let ablyChannel = null;
 
+// ==========================================
+// 1. INCOMING DATA & VR MATHEMATICS
+// ==========================================
+
+// Official W3C VR Math Constants to prevent Gimbal Lock
+const vrQ0 = new THREE.Quaternion();
+const vrQ1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+const vrZee = new THREE.Vector3(0, 0, 1);
+
 function handleIncomingData(data) {
-    // 1. Intercept new commands from the phone
+    // Intercept optional restart commands (if you ever add the button back)
     if (data.command === 'recenter' && window.recenterPlayground) {
         window.recenterPlayground();
         return;
@@ -212,124 +33,178 @@ function handleIncomingData(data) {
         return;
     }
 
-    // 2. Handle Orientation Data
+    // Process Gyroscope Orientation
     if (data.orientation) {
-        const euler = new THREE.Euler(
-            THREE.MathUtils.degToRad(data.orientation.beta || 0),
-            THREE.MathUtils.degToRad(data.orientation.alpha || 0),
-            THREE.MathUtils.degToRad(-data.orientation.gamma || 0),
-            'YXZ'
-        );
-        window.probeState.currentQuat.setFromEuler(euler);
+        const alpha = THREE.MathUtils.degToRad(data.orientation.alpha || 0);
+        const beta = THREE.MathUtils.degToRad(data.orientation.beta || 0);
+        const gamma = THREE.MathUtils.degToRad(data.orientation.gamma || 0);
+
+        // Official W3C DeviceOrientation Math (Solves upright vibration!)
+        const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+        const q = new THREE.Quaternion().setFromEuler(euler);
+        
+        q.multiply(vrQ1);
+        q.multiply(vrQ0.setFromAxisAngle(vrZee, 0)); 
+
+        window.probeState.currentQuat.copy(q);
     }
 
-    // 3. Handle Fire Pulse
+    // Process Fire Button
     if (data.fire) {
         if (window.triggerPulse) window.triggerPulse();
     }
 }
 
-function onProbeConnected(transportMode) {
-    document.getElementById('status').innerText = 'PROBE CONNECTED (' + transportMode + ')';
-    document.getElementById('status').style.color = '#44ff44';
-    document.getElementById('room-display').style.display = 'none'; 
+// ==========================================
+// 2. NETWORK INITIALIZATION
+// ==========================================
+
+function initNetwork() {
+    document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
+
+    // A. Setup Direct P2P (PeerJS)
+    const peer = new Peer('sim-hosp-' + roomPIN);
+
+    peer.on('open', (id) => {
+        document.getElementById('status').innerText = 'Direct P2P: READY\nCloud Relay: WAITING...';
+    });
+
+    peer.on('connection', (conn) => {
+        activeP2PConn = conn;
+        document.getElementById('status').innerText = 'PROBE CONNECTED (Direct P2P)';
+        document.getElementById('status').style.color = '#44ff44';
+
+        conn.on('data', handleIncomingData);
+        
+        conn.on('close', () => {
+            document.getElementById('status').innerText = 'Probe Disconnected (P2P)';
+            document.getElementById('status').style.color = '#ff4444';
+            activeP2PConn = null;
+        });
+    });
+
+    // B. Setup Cloud Relay Fallback (Ably)
+    const ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
+    ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
     
-    Tutorial.evaluateAction('connect');
-    Tutorial.syncPhone();
+    ablyChannel.presence.enter('laptop-host');
+
+    ablyChannel.subscribe('sensor-data', (message) => {
+        // ONLY use Ably data if P2P is currently broken or missing
+        if (!activeP2PConn || !activeP2PConn.open) {
+            document.getElementById('status').innerText = 'PROBE CONNECTED (Cloud Relay)';
+            document.getElementById('status').style.color = '#ffcc00';
+            handleIncomingData(message.data);
+        }
+    });
 }
 
-// THE FIX: Use addEventListener so we don't accidentally overwrite graphics.js!
+// ==========================================
+// 3. CURRICULUM STATE MACHINE
+// ==========================================
+
+window.Tutorial = {
+    currentModule: 1,
+    
+    // The Quota Saver Fix
+    syncPhone: function() {
+        let modNum = (this.currentModule === 'playground') ? 4 : this.currentModule;
+        const payload = { command: 'sync_module', module: modNum };
+
+        if (activeP2PConn && activeP2PConn.open) {
+            // Send ONLY via Direct P2P (Costs 0 quota)
+            activeP2PConn.send(payload);
+        } else if (ablyChannel) {
+            // ONLY use Cloud Relay if P2P is unavailable
+            ablyChannel.publish('host-command', payload);
+        }
+    },
+
+    loadModule: function(moduleNum) {
+        this.currentModule = moduleNum;
+        this.syncPhone();
+
+        // ------------------------------------------
+        // PLAYGROUND MODE
+        // ------------------------------------------
+        if (moduleNum === 'playground') {
+            document.getElementById('hud-progress').innerHTML = 'STEP &infin;';
+            document.getElementById('hud-title').innerText = 'Playground: Laser Trace';
+            document.getElementById('hud-instructions').innerText = 'Level 1: The Circle';
+            document.getElementById('edu-details').innerHTML = 'Hold your phone completely upright like an ultrasound probe.<br><br>Pitch and Roll your wrist to steer the red laser dot over all the checkpoints on the table to trace the shape!';
+            document.getElementById('console-freq').style.opacity = '0';
+            document.getElementById('console-freq').style.pointerEvents = 'none';
+            if (window.loadPlayground) window.loadPlayground();
+            return;
+        }
+
+        // ------------------------------------------
+        // MODULE ROUTING
+        // ------------------------------------------
+        document.getElementById('hud-progress').innerText = 'STEP ' + moduleNum;
+        
+        if (moduleNum === 1) {
+            document.getElementById('hud-title').innerText = 'Module 1: The Pulse-Echo';
+            document.getElementById('hud-instructions').innerText = 'What is Ultrasound?';
+            document.getElementById('edu-details').innerHTML = 'Human hearing operates between 20 and 20,000 Hertz. Ultrasound is simply sound waves that are above the hearing threshold. Diagnostic medical ultrasound typically uses frequencies ranging from one to twenty plus megahertz.<br><br>To begin, enter the Room PIN into your Smartphone to connect.';
+            document.getElementById('console-freq').style.opacity = '0';
+            document.getElementById('console-freq').style.pointerEvents = 'none';
+            if (window.loadModule1) window.loadModule1();
+        } 
+        else if (moduleNum === 2) {
+            document.getElementById('hud-title').innerText = 'Module 2: Depth & Frequency';
+            document.getElementById('hud-instructions').innerText = 'Adjusting the Beam';
+            document.getElementById('edu-details').innerHTML = 'High frequency (e.g., 12 MHz) provides excellent resolution for shallow structures, but cannot penetrate deep into the body. Low frequency (e.g., 3 MHz) sacrifices resolution to see deep tissues.<br><br>Use the console slider to observe this trade-off.';
+            document.getElementById('console-freq').style.opacity = '1';
+            document.getElementById('console-freq').style.pointerEvents = 'auto';
+            if (window.loadModule2) window.loadModule2();
+        }
+        else if (moduleNum === 3) {
+            document.getElementById('hud-title').innerText = 'Module 3: Probe Movements';
+            document.getElementById('hud-instructions').innerText = 'Clinical Spatial Awareness';
+            document.getElementById('edu-details').innerHTML = 'Sonographers use specific spatial movements to navigate anatomy. Practice sweeping, fanning, and rotating the probe using your smartphone to understand how it affects the ultrasound beam slice.';
+            document.getElementById('console-freq').style.opacity = '0';
+            document.getElementById('console-freq').style.pointerEvents = 'none';
+            if (window.loadModule3) window.loadModule3();
+        }
+    },
+
+    goForward: function() {
+        if (this.currentModule === 'playground') return;
+        let nextMod = this.currentModule + 1;
+        if (nextMod > 3) nextMod = 'playground';
+        this.loadModule(nextMod);
+    },
+
+    goBack: function() {
+        if (this.currentModule === 'playground') {
+            this.loadModule(3);
+            return;
+        }
+        let prevMod = this.currentModule - 1;
+        if (prevMod >= 1) this.loadModule(prevMod);
+    },
+
+    setFrequency: function(val) {
+        document.getElementById('freq-val').innerText = val;
+        if (window.updateFrequency) window.updateFrequency(val);
+    }
+};
+
+// ==========================================
+// 4. UI EVENT LISTENERS
+// ==========================================
+
+window.startSimulator = function() {
+    document.getElementById('landing-page').style.display = 'none';
+    Tutorial.loadModule(1);
+};
+
+window.startPlayground = function() {
+    document.getElementById('landing-page').style.display = 'none';
+    Tutorial.loadModule('playground');
+};
+
 window.addEventListener('load', () => {
-    document.getElementById('room-display').innerText = 'Room PIN: ' + roomPIN;
-    Tutorial.init();
-
-    let p2pStatus = "Connecting...";
-    let cloudStatus = "Connecting...";
-
-    const updateStatusUI = () => {
-        // Don't update the dashboard if the probe has already connected
-        const statusEl = document.getElementById('status');
-        if (!statusEl || statusEl.innerText.includes('PROBE CONNECTED')) return;
-
-        statusEl.innerHTML = `
-            <div style="font-size: 16px; margin-top: 10px; font-weight: normal;">
-                Direct P2P: <span style="font-weight: bold; color:${p2pStatus === 'READY' ? '#44ff44' : (p2pStatus === 'Connecting...' ? '#888' : '#ff4444')}">${p2pStatus}</span>
-                <br>
-                Cloud Relay: <span style="font-weight: bold; color:${cloudStatus === 'READY' ? '#58a6ff' : (cloudStatus === 'Connecting...' ? '#888' : '#ff4444')}">${cloudStatus}</span>
-            </div>
-        `;
-    };
-
-    updateStatusUI();
-
-    // 1. Primary: PeerJS (Direct P2P)
-    try {
-        peerHost = new Peer('sim-hosp-' + roomPIN);
-        
-        // Wait for the laptop to successfully register its ID
-        peerHost.on('open', (id) => {
-            p2pStatus = "READY";
-            updateStatusUI();
-        });
-
-        peerHost.on('connection', (conn) => {
-            conn.on('open', () => {
-                activeP2PConn = conn;
-                onProbeConnected('Direct P2P');
-                conn.on('data', handleIncomingData);
-            });
-        });
-        
-        // If the laptop's P2P gets blocked, capture the exact reason!
-        peerHost.on('error', (err) => {
-            p2pStatus = "BLOCKED (" + err.type + ")";
-            updateStatusUI();
-        });
-    } catch(e) {
-        p2pStatus = "CRASHED (" + e.message + ")";
-        updateStatusUI();
-    }
-
-    // 2. Fallback: Ably Cloud Relay
-    try {
-        ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
-        
-        ablyRealtime.connection.on('connected', () => {
-            ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
-            
-            ablyChannel.attach((err) => {
-                if (err) {
-                    cloudStatus = "BLOCKED";
-                    updateStatusUI();
-                    return;
-                }
-                
-                ablyChannel.presence.enter('laptop-host', (pErr) => {
-                    if (!pErr) {
-                        cloudStatus = "READY";
-                        updateStatusUI();
-                    }
-                });
-                
-                ablyChannel.presence.subscribe('enter', (member) => {
-                    if (member.clientId === 'phone-probe' && !activeP2PConn) {
-                        onProbeConnected('Cloud Relay');
-                    }
-                });
-
-                ablyChannel.subscribe('sensor-data', (message) => {
-                    handleIncomingData(message.data);
-                });
-            });
-        });
-
-        ablyRealtime.connection.on('failed', () => {
-            cloudStatus = "BLOCKED";
-            updateStatusUI();
-        });
-        
-    } catch (err) {
-        cloudStatus = "CRASHED (" + err.message + ")";
-        updateStatusUI();
-    }
+    initNetwork();
 });
