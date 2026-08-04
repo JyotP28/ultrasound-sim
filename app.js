@@ -2,6 +2,7 @@
 // APP.JS - MASTER ENGINE & CURRICULUM LOGIC
 // ==========================================
 
+// >>> PASTE YOUR ABLY API KEY HERE <<<
 const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
 
 window.probeState = {
@@ -80,10 +81,13 @@ function initNetwork() {
 
     const peer = new Peer('sim-hosp-' + roomPIN);
     peer.on('open', () => document.getElementById('status').innerText = 'Direct P2P: READY\nCloud Relay: WAITING...');
+    
     peer.on('connection', (conn) => {
         activeP2PConn = conn;
         document.getElementById('status').innerText = 'PROBE CONNECTED (Direct P2P)';
         document.getElementById('status').style.color = '#44ff44';
+        
+        if (window.Tutorial) window.Tutorial.syncPhone();
         
         if (Tutorial.currentModule === 1 && Tutorial.currentStep === 1) Tutorial.evaluateAction('connect');
         
@@ -94,6 +98,13 @@ function initNetwork() {
     const ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'laptop-host' });
     ablyChannel = ablyRealtime.channels.get('sim-hosp-' + roomPIN);
     ablyChannel.presence.enter('laptop-host');
+    
+    ablyChannel.presence.subscribe('enter', (member) => {
+        if (member.clientId === 'phone-probe' && window.Tutorial) {
+            window.Tutorial.syncPhone();
+        }
+    });
+
     ablyChannel.subscribe('sensor-data', (message) => {
         if (!activeP2PConn || !activeP2PConn.open) handleIncomingData(message.data);
     });
@@ -127,16 +138,6 @@ window.Tutorial = {
             steps: [
                 { instr: "High Frequency (Resolution)", desc: "High frequency waves (e.g., 12 MHz) have short wavelengths. They provide beautiful, crisp axial resolution for superficial structures like skin, nerves, and shallow vessels. However, they lose energy quickly (attenuation) and cannot \"see\" deep into the body.<br><br><b>Action:</b> Set the console Frequency slider to <b>12 MHz</b> to get a crisp image of the superficial tissue.", action: "freq_high" },
                 { instr: "Low Frequency (Penetration)", desc: "Low frequency waves (e.g., 3 MHz) have long wavelengths. They can penetrate deep through adipose and muscle tissue to visualize deep organs like the liver or kidneys. The trade-off is that the image becomes grainier, sacrificing resolution for depth.<br><br><b>Action:</b> Drop the console Frequency slider to <b>3 MHz</b> to penetrate the tissue and reveal the hidden mass.", action: "freq_low" }
-            ]
-        },
-        'intermission': {
-            title: "A Note on the Future",
-            steps: [
-                { 
-                    instr: "Proof of Concept", 
-                    desc: "You have now gone through the ultra basics of ultrasound.<br><br>This simulator was meant to be a proof of concept for the type of interactive demos that medical learners should have access to. It feels incredibly weird for this sort of technology to not be at the fingertips of students as of yet.<br><br>I hope this can inspire others to try to build the things they envision were real.<br><br>The next module will be a short game that I created to get you used to the fine motor movements of your wrist. Try to get a high score!", 
-                    action: "free_pass" // Auto-completes so the Next button appears instantly!
-                }
             ]
         },
         4: {
@@ -184,11 +185,20 @@ window.Tutorial = {
                     action: "rotate_long"
                 }
             ]
+        },
+        'intermission': {
+            title: "A Note on the Future",
+            steps: [
+                { 
+                    instr: "Proof of Concept", 
+                    desc: "You have now gone through the ultra basics of ultrasound.<br><br>This simulator was meant to be a proof of concept for the type of interactive demos that medical learners should have access to. It feels incredibly weird for this sort of technology to not be at the fingertips of students as of yet.<br><br>I hope this can inspire others to try to build the things they envision were real.<br><br>The next module will be a short game that I created to get you used to the fine motor movements of your wrist. Try to get a high score!", 
+                    action: "free_pass" 
+                }
+            ]
         }
     },
 
     syncPhone: function() {
-        // Keeps the phone UI clean depending on the module
         let modNum = (this.currentModule === 'playground' || this.currentModule === 'intermission') ? 4 : this.currentModule;
         const payload = { command: 'sync_module', module: modNum };
         if (activeP2PConn && activeP2PConn.open) activeP2PConn.send(payload);
@@ -207,12 +217,11 @@ window.Tutorial = {
             document.getElementById('edu-details').innerHTML = 'Hold your phone upright.<br><br>Pitch and Roll your wrist to steer the red laser dot over all the checkpoints on the table to trace the shape!';
             document.getElementById('console-freq').style.opacity = '0';
             document.getElementById('console-freq').style.pointerEvents = 'none';
-            document.getElementById('btn-next').style.display = 'inline-block'; 
+            document.getElementById('btn-next').style.display = 'none'; 
             if (window.loadPlayground) window.loadPlayground();
             return;
         }
 
-        // Wipe the 3D canvases clean for the text-only Intermission screen
         if (moduleNum === 'intermission') {
             if (typeof scene3D !== 'undefined') { while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]); }
             if (typeof sceneUS !== 'undefined') { while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]); }
@@ -241,7 +250,6 @@ window.Tutorial = {
         document.getElementById('hud-instructions').innerText = stepData.instr;
         document.getElementById('edu-details').innerHTML = stepData.desc;
 
-        // Auto-complete logic for text-only screens
         if (stepData.action === "free_pass") {
             this.stepComplete = true;
             document.getElementById('btn-next').style.display = 'inline-block';
@@ -256,6 +264,8 @@ window.Tutorial = {
             document.getElementById('console-freq').style.opacity = '0';
             document.getElementById('console-freq').style.pointerEvents = 'none';
         }
+
+        this.syncPhone();
     },
 
     evaluateAction: function(actionStr) {
@@ -274,9 +284,13 @@ window.Tutorial = {
         }
     },
 
+    // THE FIX: Re-routed goForward for 1 -> 2 -> 3 -> 4 -> Intermission -> Playground
     goForward: function() {
-        // Routing logic: Intermission -> Playground -> Module 4
-        if (this.currentModule === 'playground') return this.loadModule(4);
+        if (this.currentModule === 'playground') {
+            document.getElementById('edu-details').innerHTML = "<h3 style='color:#44ff44; text-align:center;'>Course Completed!</h3><p style='text-align:center;'>You have finished the fundamentals of ultrasound mechanics and spatial manipulation.</p>";
+            document.getElementById('btn-next').style.display = 'none';
+            return;
+        }
         
         let modData = this.curriculum[this.currentModule];
         if (modData && this.currentStep < modData.steps.length) {
@@ -285,20 +299,16 @@ window.Tutorial = {
         } else {
             if (this.currentModule === 1) this.loadModule(2);
             else if (this.currentModule === 2) this.loadModule(3);
-            else if (this.currentModule === 3) this.loadModule('intermission');
+            else if (this.currentModule === 3) this.loadModule(4);
+            else if (this.currentModule === 4) this.loadModule('intermission');
             else if (this.currentModule === 'intermission') this.loadModule('playground');
-            else if (this.currentModule === 4) {
-                // The Final End State!
-                document.getElementById('edu-details').innerHTML = "<h3 style='color:#44ff44; text-align:center;'>Course Completed!</h3><p style='text-align:center;'>You have finished the fundamentals of ultrasound mechanics and spatial manipulation.</p>";
-                document.getElementById('btn-next').style.display = 'none';
-            }
         }
     },
 
+    // THE FIX: Re-routed goBack to follow the same correct path backwards
     goBack: function() {
         if (this.currentModule === 'playground') return this.loadModule('intermission');
-        if (this.currentModule === 4) return this.loadModule('playground');
-        if (this.currentModule === 'intermission') return this.loadModule(3);
+        if (this.currentModule === 'intermission') return this.loadModule(4);
         
         if (this.currentStep > 1) {
             this.currentStep--;
@@ -306,6 +316,7 @@ window.Tutorial = {
         } else {
             if (this.currentModule === 2) this.loadModule(1);
             else if (this.currentModule === 3) this.loadModule(2);
+            else if (this.currentModule === 4) this.loadModule(3);
         }
     },
 
@@ -315,22 +326,14 @@ window.Tutorial = {
     }
 };
 
-// ==========================================
-// 3. STARTUP UI TRIGGERS
-// ==========================================
-
 window.startSimulator = function() {
     document.getElementById('landing-page').style.display = 'none';
-    // THE FIX: Trigger the calibration modal before Module 1!
     document.getElementById('calibration-overlay').style.display = 'flex';
     Tutorial.loadModule(1);
 };
-
 window.startPlayground = function() {
     document.getElementById('landing-page').style.display = 'none';
-    // THE FIX: Trigger the calibration modal before the Playground!
     document.getElementById('calibration-overlay').style.display = 'flex';
     Tutorial.loadModule('playground');
 };
-
 window.addEventListener('load', () => { initNetwork(); });
