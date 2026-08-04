@@ -29,10 +29,20 @@
         <div id="status" style="color: #8b949e; margin-top: 15px;">Waiting for PIN...</div>
     </div>
 
-    <div id="probe-screen" class="screen">
-        <h2>Transducer Active</h2>
-        <button id="gyro-btn" onclick="startMotion()">1. ENABLE MOTION</button>
-        <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
+    <div id="probe-screen" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
+        <h2 style="color: #58a6ff; margin-bottom: 30px;">PROBE CONNECTED</h2>
+        
+        <!-- NEW RECENTER BUTTON -->
+        <button onclick="recenterProbe()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #1f6feb; color: white; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(31, 111, 235, 0.4);">
+            ⌖ Recenter Probe
+        </button>
+
+        <button id="gyro-btn" onclick="startMotion()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #8b949e; color: white; font-weight: bold; margin-bottom: 20px;">
+            Enable Motion Sensors
+        </button>
+        <button id="fire-btn" onclick="firePulse()" style="padding: 20px 40px; font-size: 24px; border-radius: 50px; border: none; background-color: #ff4444; color: white; font-weight: bold; box-shadow: 0 10px 30px rgba(255, 68, 68, 0.5); display: none;">
+            FIRE PULSE
+        </button>
     </div>
 
     <script>
@@ -156,9 +166,43 @@
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
+        // --- NEW CALIBRATION & RESTART LOGIC ---
+        function sendNetworkCommand(payload) {
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send(payload);
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', payload);
+            }
+        }
+
+        function recenterProbe() {
+            if (navigator.vibrate) navigator.vibrate(50);
+            sendNetworkCommand({ command: 'recenter' });
+        }
+
+        // Attempt to catch Volume Down key
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'AudioVolumeDown' || e.key === 'VolumeDown' || e.keyCode === 209) {
+                sendNetworkCommand({ command: 'restart' });
+            }
+        });
+
+        // Bulletproof Fallback: Double tap anywhere on the phone screen to restart
+        let lastTap = 0;
+        document.addEventListener('touchend', (e) => {
+            let currentTime = new Date().getTime();
+            let tapLength = currentTime - lastTap;
+            if (tapLength < 500 && tapLength > 0) {
+                sendNetworkCommand({ command: 'restart' });
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            }
+            lastTap = currentTime;
+        });
+
         // 2. DECOUPLED INPUT VARIABLES
         let latestOrientation = null;
         let dataLoop = null;
+        // --- 2. ZERO-LATENCY HARDWARE ROUTING ---
         let lastAblySendTime = 0;
 
         function startMotion() {
@@ -169,18 +213,28 @@
                 DeviceOrientationEvent.requestPermission().then(permissionState => {
                     if (permissionState === 'granted') {
                         window.addEventListener('deviceorientation', handleOrientation);
-                        startDataLoop();
                     }
                 }).catch(console.error);
             } else {
                 window.addEventListener('deviceorientation', handleOrientation);
-                startDataLoop();
             }
         }
 
-        // 3. THE SENSOR LOGIC (Instantly captures the absolute newest data, but doesn't send it!)
+        // The exact millisecond the physical hardware detects movement, it fires this function.
         function handleOrientation(event) {
-            latestOrientation = { alpha: event.alpha, beta: event.beta, gamma: event.gamma };
+            const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
+            
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                // UNLEASHED: Send immediately over P2P with 0ms artificial delay!
+                p2pConn.send(data);
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                // We keep Ably slightly throttled ONLY so you don't burn through your free quotas
+                const now = Date.now();
+                if (now - lastAblySendTime > 33) {
+                    ablyChannel.publish('sensor-data', data);
+                    lastAblySendTime = now;
+                }
+            }
         }
 
         // 4. THE METRONOME (Upgraded to 60 FPS Hardware Sync)

@@ -202,10 +202,22 @@ let ablyRealtime = null;
 let ablyChannel = null;
 
 function handleIncomingData(data) {
+    function handleIncomingData(data) {
+    // 1. Intercept new commands from the phone
+    if (data.command === 'recenter' && window.recenterPlayground) {
+        window.recenterPlayground();
+        return;
+    }
+    if (data.command === 'restart' && window.resetGame) {
+        window.resetGame();
+        return;
+    }
+    
     if (data.fire === true) {
         Tutorial.evaluateAction('fire_pulse');
         if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
     }
+
     if (data.orientation) {
         if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
         if (typeof window.updateGlobalIMU === 'function') {
@@ -318,3 +330,4 @@ window.addEventListener('load', () => {
         updateStatusUI();
     }
 });
+}

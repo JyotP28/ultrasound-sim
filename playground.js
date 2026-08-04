@@ -1,5 +1,5 @@
 // ==========================================
-// PLAYGROUND MODE: LASER TRACE GAME (POLISHED)
+// PLAYGROUND MODE: AUDIO & CALIBRATION POLISH
 // ==========================================
 
 let pgGroup, laserMesh, floorPlane;
@@ -14,18 +14,74 @@ let liveHud;
 
 const MAX_TRAIL_POINTS = 100;
 let trailPoints = [];
-let trailLine;       // The 3D line
-let radarTrailLine;  // The new 2D Radar line
+let trailLine, radarTrailLine;
 
 const raycaster = new THREE.Raycaster();
 const laserDirection = new THREE.Vector3(0, -1, 0); 
 const RADAR_SCALE = 0.5; 
 
+// --- CALIBRATION MATH ---
+let baseQuatOffset = new THREE.Quaternion();
+let needsRecenter = true; // Auto-centers when you load the game!
+
+// --- WEB AUDIO SYNTHESIZER ---
+let audioCtx;
+function initAudio() {
+    if (!audioCtx) {
+        // AudioContext must be generated AFTER a user gesture (like clicking "Playground")
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playDing() {
+    if (!audioCtx) return;
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function playSuccess() {
+    if (!audioCtx) return;
+    // Rapid C Major Arpeggio (Level Up Sound!)
+    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { 
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0, audioCtx.currentTime + i * 0.1);
+        gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + i * 0.1 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.5);
+        
+        osc.start(audioCtx.currentTime + i * 0.1);
+        osc.stop(audioCtx.currentTime + i * 0.1 + 0.6);
+    });
+}
+
+// Triggered by the app.js incoming data router
+window.recenterPlayground = function() {
+    needsRecenter = true;
+    playDing(); // Audio feedback that calibration worked
+};
+
 window.loadPlayground = function() {
+    initAudio(); 
+    
     while(scene3D.children.length > 0) scene3D.remove(scene3D.children[0]);
     while(sceneUS.children.length > 0) sceneUS.remove(sceneUS.children[0]);
 
-    // --- 1. SPATIAL VIEW (3D) SETUP ---
     pgGroup = new THREE.Group();
     pgGroup.position.set(0, 1.0, 0); 
     scene3D.add(pgGroup);
@@ -51,7 +107,6 @@ window.loadPlayground = function() {
     floorPlane.position.y = -1.2;
     scene3D.add(floorPlane);
 
-    // 3D Trail setup
     const trailGeo = new THREE.BufferGeometry();
     const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
     trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
@@ -64,7 +119,6 @@ window.loadPlayground = function() {
     dirLight.position.set(2, 5, 2);
     scene3D.add(dirLight);
 
-    // --- 2. TOP-DOWN RADAR (2D) SETUP ---
     const radarGrid = new THREE.GridHelper(10, 20, 0x1f6feb, 0x161b22);
     radarGrid.rotation.x = Math.PI / 2; 
     sceneUS.add(radarGrid);
@@ -76,7 +130,6 @@ window.loadPlayground = function() {
     radarCursor.position.z = 0.1; 
     sceneUS.add(radarCursor);
 
-    // NEW: Radar Trail setup
     const radarTrailGeo = new THREE.BufferGeometry();
     const radarTrailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
     radarTrailGeo.setAttribute('position', new THREE.BufferAttribute(radarTrailPositions, 3));
@@ -88,7 +141,6 @@ window.loadPlayground = function() {
     if (topLeftText) topLeftText.innerHTML = 'TOP-DOWN RADAR<br>TARGET ACQUISITION';
     if (topRightText) topRightText.innerHTML = 'Mode: Trace<br>Status: Active';
 
-    // --- 3. BUILD THE CHECKPOINTS ---
     checkpoints = [];
     radarCheckpoints = [];
     const radius = 1.4;
@@ -132,15 +184,13 @@ function updateTrail(hitPoint) {
     
     for (let i = 0; i < MAX_TRAIL_POINTS; i++) {
         if (i < trailPoints.length) {
-            // Update 3D Line
             positions[i * 3] = trailPoints[i].x;
             positions[i * 3 + 1] = trailPoints[i].y + 0.02; 
             positions[i * 3 + 2] = trailPoints[i].z;
             
-            // Update 2D Radar Line (Mapped via RADAR_SCALE)
             radarPositions[i * 3] = trailPoints[i].x * RADAR_SCALE;
             radarPositions[i * 3 + 1] = -trailPoints[i].z * RADAR_SCALE;
-            radarPositions[i * 3 + 2] = 0.05; // Hover above radar grid
+            radarPositions[i * 3 + 2] = 0.05; 
         } else {
             let lastPt = trailPoints[trailPoints.length - 1];
             positions[i * 3] = lastPt.x;
@@ -209,6 +259,7 @@ window.resetGame = function() {
     gameActive = true;
     startTime = Date.now();
     trailPoints = []; 
+    needsRecenter = true; // Auto-center the probe on every new run!
     
     if (scoreOverlay) scoreOverlay.style.display = 'none';
     if (liveHud) liveHud.style.display = 'block';
@@ -229,6 +280,8 @@ window.resetGame = function() {
 
 function finishGame() {
     gameActive = false;
+    playSuccess(); // Trigger the win sound!
+
     let timeTaken = (Date.now() - startTime) / 1000;
     let score = Math.max(0, Math.floor(15000 - (timeTaken * 250)));
     
@@ -245,10 +298,21 @@ function finishGame() {
 window.animatePlayground = function() {
     if (Tutorial.currentModule !== 'playground' || !pgGroup) return;
 
-    // THE FIX: "Slerp" acts as a digital shock absorber!
-    // Instead of instantly snapping to the raw data, it smoothly glides 40% of the way there every frame. 
-    // This completely hides network stutters and human hand tremors!
-    pgGroup.quaternion.slerp(window.probeState.currentQuat, 0.4);
+    // --- CALIBRATION MATH ---
+    let rawQuat = window.probeState.currentQuat;
+    if (rawQuat) {
+        if (needsRecenter) {
+            baseQuatOffset.copy(rawQuat).invert();
+            needsRecenter = false;
+        }
+        
+        let adjustedQuat = rawQuat.clone().premultiply(baseQuatOffset);
+        
+        // THE FIX: Cranked the Slerp factor from 0.4 to 0.85! 
+        // It is now incredibly snappy and responsive for fast, circular tracing, 
+        // while still filtering out micro-tremors.
+        pgGroup.quaternion.slerp(adjustedQuat, 0.85);
+    }
 
     if (gameActive) {
         let timeTaken = (Date.now() - startTime) / 1000;
@@ -277,9 +341,7 @@ window.animatePlayground = function() {
     if (floorIntersects.length > 0) {
         let hit = floorIntersects[0];
         laserMesh.scale.y = hit.distance;
-        
         updateTrail(hit.point);
-        
         radarCursor.position.set(hit.point.x * RADAR_SCALE, -hit.point.z * RADAR_SCALE, 0.1);
     } else {
         laserMesh.scale.y = 10; 
@@ -288,9 +350,11 @@ window.animatePlayground = function() {
     let intersects = raycaster.intersectObject(activeCp);
     
     if (intersects.length > 0) {
+        // HIT DETECTED: Trigger the ding sound!
+        playDing(); 
+
         activeCp.material.color.setHex(0x44ff44); 
         activeCp.scale.set(1, 1, 1); 
-        
         activeRadarCp.material.color.setHex(0x44ff44); 
         activeRadarCp.scale.set(1, 1, 1);
 
