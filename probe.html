@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- Prevents the phone screen from accidentally zooming in if you tap too fast -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ultrasound Probe Simulator</title>
     <style>
@@ -12,7 +11,7 @@
             background-color: #0d1117; 
             color: white; 
             overflow: hidden; 
-            touch-action: none; /* Prevents pull-to-refresh on mobile */
+            touch-action: none; 
         }
         #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
         input { font-size: 24px; padding: 15px; width: 60%; text-align: center; border-radius: 8px; border: 1px solid #30363d; background: #161b22; color: white; margin-bottom: 20px; }
@@ -22,9 +21,6 @@
 </head>
 <body>
 
-    <!-- ==========================================
-         SCREEN 1: LOGIN (ROOM PIN)
-         ========================================== -->
     <div id="login-screen">
         <h1 style="color: #58a6ff; margin-bottom: 10px;">Ultrasound Probe</h1>
         <p style="margin-bottom: 30px; color: #8b949e; text-align: center; width: 80%;">Enter the Room PIN displayed on your laptop to connect.</p>
@@ -35,22 +31,10 @@
         <div id="status">Waiting for connection...</div>
     </div>
 
-    <!-- ==========================================
-         SCREEN 2: THE PROBE CONTROLS
-         ========================================== -->
     <div id="probe-screen" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
         <h2 style="color: #58a6ff; margin-bottom: 30px; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5);">PROBE CONNECTED</h2>
         
-        <!-- CALIBRATION & GAME CONTROLS -->
-        <button onclick="recenterProbe()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #1f6feb; color: white; font-weight: bold; margin-bottom: 15px; width: 80%; box-shadow: 0 4px 15px rgba(31, 111, 235, 0.4);">
-            ⌖ Recenter Probe
-        </button>
-
-        <button onclick="restartPlayground()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #238636; color: white; font-weight: bold; margin-bottom: 30px; width: 80%; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);">
-            ↺ Restart Game
-        </button>
-
-        <!-- SENSOR CONTROLS -->
+        <!-- SENSOR CONTROLS ONLY -->
         <button id="gyro-btn" onclick="startMotion()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #8b949e; color: white; font-weight: bold; margin-bottom: 20px; width: 80%;">
             Enable Motion Sensors
         </button>
@@ -60,9 +44,6 @@
         </button>
     </div>
 
-    <!-- ==========================================
-         LIBRARIES & LOGIC
-         ========================================== -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 
@@ -75,7 +56,6 @@
         let ablyChannel = null;
         let ablyRealtime = null;
 
-        // --- NETWORK CONNECTION LOGIC ---
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
             if (!pin) return;
@@ -172,7 +152,6 @@
             });
         }
 
-        // --- WAKE LOCK & UI TRANSITION ---
         let wakeLock = null;
         async function enableWakeLock() {
             try {
@@ -190,31 +169,16 @@
             enableWakeLock();
         }
 
-        // --- GAME CONTROLS ---
-        function sendNetworkCommand(payload) {
-            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                p2pConn.send(payload);
-            } else if (activeTransport === 'ably' && ablyChannel) {
-                ablyChannel.publish('sensor-data', payload);
-            }
-        }
-
-        function recenterProbe() {
-            if (navigator.vibrate) navigator.vibrate(50);
-            sendNetworkCommand({ command: 'recenter' });
-        }
-
-        function restartPlayground() {
-            if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-            sendNetworkCommand({ command: 'restart' });
-        }
-
         function firePulse() {
-            sendNetworkCommand({ fire: true });
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send({ fire: true });
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', { fire: true });
+            }
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
-        // --- HARDWARE SENSORS (STRICT MATH LOCK) ---
+        // --- HARDWARE SENSORS (ZERO LATENCY, SAFE MATH) ---
         let lastAblySendTime = 0;
 
         function startMotion() {
@@ -233,7 +197,6 @@
         }
 
         function handleOrientation(event) {
-            // STRICT MATH GUARD: Ensures the hardware has actually warmed up and isn't sending undefined/null data
             if (typeof event.alpha !== 'number' || typeof event.beta !== 'number' || typeof event.gamma !== 'number') {
                 return;
             }
@@ -241,10 +204,8 @@
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                // Sends instantly with 0ms latency!
                 p2pConn.send(data);
             } else if (activeTransport === 'ably' && ablyChannel) {
-                // Throttle Ably slightly to protect your API limits
                 const now = Date.now();
                 if (now - lastAblySendTime > 33) {
                     ablyChannel.publish('sensor-data', data);

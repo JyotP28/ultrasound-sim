@@ -1,5 +1,5 @@
 // ==========================================
-// PLAYGROUND MODE: AUDIO & CALIBRATION POLISH
+// PLAYGROUND MODE: REVERTED TO STABLE SMOOTHNESS
 // ==========================================
 
 let pgGroup, laserMesh, floorPlane;
@@ -20,15 +20,10 @@ const raycaster = new THREE.Raycaster();
 const laserDirection = new THREE.Vector3(0, -1, 0); 
 const RADAR_SCALE = 0.5; 
 
-// --- CALIBRATION MATH ---
-let baseQuatOffset = new THREE.Quaternion();
-let needsRecenter = true; // Auto-centers when you load the game!
-
 // --- WEB AUDIO SYNTHESIZER ---
 let audioCtx;
 function initAudio() {
     if (!audioCtx) {
-        // AudioContext must be generated AFTER a user gesture (like clicking "Playground")
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -42,7 +37,7 @@ function playDing() {
     gain.connect(audioCtx.destination);
     
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // High pitch A5
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
     gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
     
@@ -52,7 +47,6 @@ function playDing() {
 
 function playSuccess() {
     if (!audioCtx) return;
-    // Rapid C Major Arpeggio (Level Up Sound!)
     [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { 
         let osc = audioCtx.createOscillator();
         let gain = audioCtx.createGain();
@@ -69,12 +63,6 @@ function playSuccess() {
         osc.stop(audioCtx.currentTime + i * 0.1 + 0.6);
     });
 }
-
-// Triggered by the app.js incoming data router
-window.recenterPlayground = function() {
-    needsRecenter = true;
-    playDing(); // Audio feedback that calibration worked
-};
 
 window.loadPlayground = function() {
     initAudio(); 
@@ -182,7 +170,6 @@ function updateTrail(hitPoint) {
     const positions = trailLine.geometry.attributes.position.array;
     const radarPositions = radarTrailLine.geometry.attributes.position.array;
     
-    // We only iterate through the EXACT number of points we have
     for (let i = 0; i < trailPoints.length; i++) {
         positions[i * 3] = trailPoints[i].x;
         positions[i * 3 + 1] = trailPoints[i].y + 0.02; 
@@ -195,8 +182,7 @@ function updateTrail(hitPoint) {
     
     trailLine.geometry.attributes.position.needsUpdate = true;
     radarTrailLine.geometry.attributes.position.needsUpdate = true;
-
-    // THE FIX: Tell the 3D Engine to stop connecting fake/empty points to the center!
+    
     trailLine.geometry.setDrawRange(0, trailPoints.length);
     radarTrailLine.geometry.setDrawRange(0, trailPoints.length);
 }
@@ -254,7 +240,6 @@ window.resetGame = function() {
     gameActive = true;
     startTime = Date.now();
     trailPoints = []; 
-    needsRecenter = true; // Auto-center the probe on every new run!
     
     if (scoreOverlay) scoreOverlay.style.display = 'none';
     if (liveHud) liveHud.style.display = 'block';
@@ -275,7 +260,7 @@ window.resetGame = function() {
 
 function finishGame() {
     gameActive = false;
-    playSuccess(); // Trigger the win sound!
+    playSuccess(); 
 
     let timeTaken = (Date.now() - startTime) / 1000;
     let score = Math.max(0, Math.floor(15000 - (timeTaken * 250)));
@@ -293,20 +278,10 @@ function finishGame() {
 window.animatePlayground = function() {
     if (Tutorial.currentModule !== 'playground' || !pgGroup) return;
 
-    // --- CALIBRATION MATH ---
-    let rawQuat = window.probeState.currentQuat;
-    if (rawQuat) {
-        if (needsRecenter) {
-            baseQuatOffset.copy(rawQuat).invert();
-            needsRecenter = false;
-        }
-        
-        let adjustedQuat = rawQuat.clone().premultiply(baseQuatOffset);
-        
-        // THE FIX: Cranked the Slerp factor from 0.4 to 0.85! 
-        // It is now incredibly snappy and responsive for fast, circular tracing, 
-        // while still filtering out micro-tremors.
-        pgGroup.quaternion.slerp(adjustedQuat, 0.85);
+    // THE REVERT: Back to the stable 0.4 shock absorber with pure raw quaternions.
+    // No calibration math to cause spiderweb flips!
+    if (window.probeState.currentQuat) {
+        pgGroup.quaternion.slerp(window.probeState.currentQuat, 0.4);
     }
 
     if (gameActive) {
@@ -345,7 +320,6 @@ window.animatePlayground = function() {
     let intersects = raycaster.intersectObject(activeCp);
     
     if (intersects.length > 0) {
-        // HIT DETECTED: Trigger the ding sound!
         playDing(); 
 
         activeCp.material.color.setHex(0x44ff44); 
