@@ -178,9 +178,9 @@
             if (navigator.vibrate) navigator.vibrate(100);
         }
 
-        // --- HARDWARE SENSORS (ZERO LATENCY, SAFE MATH) ---
-        let lastP2PSendTime = 0;
+        // --- HARDWARE SENSORS (Zero-Latency W3C Event Loop) ---
         let lastAblySendTime = 0;
+        let lastP2PSendTime = 0;
 
         function startMotion() {
             document.getElementById('gyro-btn').innerText = "MOTION ACTIVE";
@@ -198,6 +198,7 @@
         }
 
         function handleOrientation(event) {
+            // Strict Math Guard protects against empty/null frames
             if (typeof event.alpha !== 'number' || typeof event.beta !== 'number' || typeof event.gamma !== 'number') {
                 return;
             }
@@ -206,13 +207,13 @@
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                // 60Hz Throttle: Prevents WebRTC packet-clumping!
+                // Strict 60Hz limit (16ms) prevents WebRTC packet-clumping!
                 if (now - lastP2PSendTime > 16) {
                     p2pConn.send(data);
                     lastP2PSendTime = now;
                 }
             } else if (activeTransport === 'ably' && ablyChannel) {
-                if (now - lastAblySendTime > 33) {
+                if (now - lastAblySendTime > 40) {
                     ablyChannel.publish('sensor-data', data);
                     lastAblySendTime = now;
                 }

@@ -22,43 +22,11 @@ const rendererUS = new THREE.WebGLRenderer({ antialias: true });
 rendererUS.setSize(viewportWidth, viewportHeight);
 document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
 
-// --- GLOBAL PROBE STATE (Full 3D Quaternion) ---
-window.probeState = {
-    targetQuat: new THREE.Quaternion(),
-    currentQuat: new THREE.Quaternion(),
-    baseAlpha: null // Used to calibrate "Forward"
-};
-const degToRad = Math.PI / 180;
-
-// THE FIX: We define a perfect -90 degree X-axis rotation Quaternion.
-// We apply this AFTER calculating the raw sensor math to prevent Gimbal Lock!
-const qOffset = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
-
-window.updateGlobalIMU = function(imuData) {
-    if (!imuData) return;
-    
-    let beta = (imuData.beta !== null && imuData.beta !== undefined) ? imuData.beta : 90;
-    let alpha = (imuData.alpha !== null && imuData.alpha !== undefined) ? imuData.alpha : 0;
-    let gamma = (imuData.gamma !== null && imuData.gamma !== undefined) ? imuData.gamma : 0;
-
-    // Calibrate the compass so "straight ahead" is whatever direction you are facing
-    if (window.probeState.baseAlpha === null) window.probeState.baseAlpha = alpha;
-    let relAlpha = alpha - window.probeState.baseAlpha;
-
-    // 1. Create the Euler using RAW device angles. 
-    const euler = new THREE.Euler(
-        beta * degToRad,
-        relAlpha * degToRad,
-        -gamma * degToRad,
-        'YXZ'
-    );
-    
-    // 2. Convert raw angles to Quaternion
-    window.probeState.targetQuat.setFromEuler(euler);
-
-    // 3. Multiply by the offset globally to visually orient the probe downwards
-    window.probeState.targetQuat.multiply(qOffset);
-};
+// Safe startup without overwriting the network math!
+window.probeState = window.probeState || {};
+if (!window.probeState.currentQuat) {
+    window.probeState.currentQuat = new THREE.Quaternion();
+}
 
 // ==========================================
 // MODULE 1: THE PULSE-ECHO PRINCIPLE
@@ -108,7 +76,7 @@ window.loadModule1 = function() {
 
 loadModule1();
 
-window.triggerPulseAnimation = function() {
+window.triggerPulse = function() {
     if (pulse.active) return;
     pulse.active = true;
     pulse.localY = -0.6; 
@@ -119,22 +87,25 @@ window.triggerPulseAnimation = function() {
 };
 
 // ==========================================
-// RENDER LOOP & QUATERNION SLERP
+// RENDER LOOP
 // ==========================================
 function animate() {
     requestAnimationFrame(animate);
 
-    // 1. SPHERICAL LINEAR INTERPOLATION (SLERP)
-    window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.4);
+    // THE FIX: The Buttery Smooth Shock Absorber is Back!
+    // It glides 40% of the way to the target every single frame, eliminating all jitter.
+    if (window.probeState.currentQuat && window.probeState.targetQuat && window.probeState.currentQuat.isQuaternion) {
+        window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.4);
+    }
 
-    // 2. MODULE 1 SPECIFIC LOGIC
-    if (Tutorial.currentModule === 1 && mod1Group) {
-        mod1Group.quaternion.copy(window.probeState.currentQuat);
+    if (window.Tutorial && window.Tutorial.currentModule === 1 && mod1Group) {
+        if (window.probeState.currentQuat && window.probeState.currentQuat.isQuaternion) {
+            mod1Group.quaternion.copy(window.probeState.currentQuat);
+        }
 
         if (pulse.active) {
             pulse.localY -= 0.04; 
             pulseMesh.position.y = pulse.localY;
-
             let pulseWorld = new THREE.Vector3();
             pulseMesh.getWorldPosition(pulseWorld);
 
@@ -168,7 +139,6 @@ function animate() {
         }
     }
 
-    // Call Module loops if they exist (INCLUDES PLAYGROUND NOW)
     if (typeof window.animateMod2 === 'function') window.animateMod2();
     if (typeof window.animateMod3 === 'function') window.animateMod3();
     if (typeof window.animateMod4 === 'function') window.animateMod4(); 
@@ -177,6 +147,7 @@ function animate() {
     renderer3D.render(scene3D, camera3D);
     rendererUS.render(sceneUS, cameraUS);
 }
+
 
 window.addEventListener('resize', () => {
     viewportWidth = container3D.clientWidth;

@@ -278,10 +278,9 @@ function finishGame() {
 window.animatePlayground = function() {
     if (Tutorial.currentModule !== 'playground' || !pgGroup) return;
 
-    // THE REVERT: Back to the stable 0.4 shock absorber with pure raw quaternions.
-    // No calibration math to cause spiderweb flips!
+    // THE FIX: True 1-to-1 zero latency. No dragging!
     if (window.probeState.currentQuat) {
-        pgGroup.quaternion.slerp(window.probeState.currentQuat, 0.4);
+        pgGroup.quaternion.copy(window.probeState.currentQuat);
     }
 
     if (gameActive) {
