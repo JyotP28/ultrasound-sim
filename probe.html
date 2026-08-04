@@ -2,51 +2,72 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Prevents the phone screen from accidentally zooming in if you tap too fast -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Probe Controller</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <title>Ultrasound Probe Simulator</title>
     <style>
-        body { background-color: #0d1117; color: #ffffff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
-        .screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; text-align: center;}
-        #login-screen { display: flex; }
-        h2 { color: #58a6ff; letter-spacing: 2px; text-transform: uppercase; }
-        input[type="number"] { font-size: 24px; padding: 15px; width: 200px; text-align: center; margin-bottom: 20px; border-radius: 8px; border: 2px solid #30363d; background: #161b22; color: white; }
-        button { font-size: 20px; padding: 15px 40px; background-color: #238636; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); margin-bottom: 20px; }
-        button:active { background-color: #2ea043; transform: scale(0.98); }
-        
-        #fire-btn { background-color: #58a6ff; width: 220px; height: 220px; border-radius: 50%; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(88, 166, 255, 0.4); margin-top: 40px; }
-        #fire-btn:active { background-color: #79c0ff; box-shadow: 0 0 30px rgba(121, 192, 255, 0.8); }
-        #gyro-btn { background-color: #9b59b6; width: 100%; max-width: 300px;}
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #0d1117; 
+            color: white; 
+            overflow: hidden; 
+            touch-action: none; /* Prevents pull-to-refresh on mobile */
+        }
+        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        input { font-size: 24px; padding: 15px; width: 60%; text-align: center; border-radius: 8px; border: 1px solid #30363d; background: #161b22; color: white; margin-bottom: 20px; }
+        button.connect-btn { font-size: 20px; padding: 15px 40px; border-radius: 8px; border: none; background: #238636; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); }
+        #status { margin-top: 20px; font-size: 16px; color: #8b949e; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="screen">
-        <h2>Enter Room PIN</h2>
-        <input type="number" id="pin-input" placeholder="e.g. 1234">
-        <button onclick="connectToSim()">CONNECT</button>
-        <div id="status" style="color: #8b949e; margin-top: 15px;">Waiting for PIN...</div>
+    <!-- ==========================================
+         SCREEN 1: LOGIN (ROOM PIN)
+         ========================================== -->
+    <div id="login-screen">
+        <h1 style="color: #58a6ff; margin-bottom: 10px;">Ultrasound Probe</h1>
+        <p style="margin-bottom: 30px; color: #8b949e; text-align: center; width: 80%;">Enter the Room PIN displayed on your laptop to connect.</p>
+        
+        <input type="number" id="pin-input" placeholder="Room PIN" pattern="[0-9]*" inputmode="numeric">
+        <button class="connect-btn" onclick="connectToSim()">Connect to Simulator</button>
+        
+        <div id="status">Waiting for connection...</div>
     </div>
 
+    <!-- ==========================================
+         SCREEN 2: THE PROBE CONTROLS
+         ========================================== -->
     <div id="probe-screen" style="display: none; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
-        <h2 style="color: #58a6ff; margin-bottom: 30px;">PROBE CONNECTED</h2>
+        <h2 style="color: #58a6ff; margin-bottom: 30px; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5);">PROBE CONNECTED</h2>
         
-        <!-- NEW RECENTER BUTTON -->
-        <button onclick="recenterProbe()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #1f6feb; color: white; font-weight: bold; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(31, 111, 235, 0.4);">
+        <!-- CALIBRATION & GAME CONTROLS -->
+        <button onclick="recenterProbe()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #1f6feb; color: white; font-weight: bold; margin-bottom: 15px; width: 80%; box-shadow: 0 4px 15px rgba(31, 111, 235, 0.4);">
             ⌖ Recenter Probe
         </button>
 
-        <button id="gyro-btn" onclick="startMotion()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #8b949e; color: white; font-weight: bold; margin-bottom: 20px;">
+        <button onclick="restartPlayground()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #238636; color: white; font-weight: bold; margin-bottom: 30px; width: 80%; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);">
+            ↺ Restart Game
+        </button>
+
+        <!-- SENSOR CONTROLS -->
+        <button id="gyro-btn" onclick="startMotion()" style="padding: 15px 30px; font-size: 20px; border-radius: 8px; border: none; background-color: #8b949e; color: white; font-weight: bold; margin-bottom: 20px; width: 80%;">
             Enable Motion Sensors
         </button>
+        
         <button id="fire-btn" onclick="firePulse()" style="padding: 20px 40px; font-size: 24px; border-radius: 50px; border: none; background-color: #ff4444; color: white; font-weight: bold; box-shadow: 0 10px 30px rgba(255, 68, 68, 0.5); display: none;">
             FIRE PULSE
         </button>
     </div>
 
+    <!-- ==========================================
+         LIBRARIES & LOGIC
+         ========================================== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+
     <script>
-        // >>> PASTE YOUR EXACT SAME ABLY API KEY HERE <<<
+        // >>> PASTE YOUR ABLY API KEY RIGHT HERE <<<
         const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
 
         let activeTransport = null;
@@ -54,6 +75,7 @@
         let ablyChannel = null;
         let ablyRealtime = null;
 
+        // --- NETWORK CONNECTION LOGIC ---
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
             if (!pin) return;
@@ -77,7 +99,6 @@
                 const peer = new Peer();
 
                 peer.on('open', () => {
-                    // 1. REVERT: Removed { reliable: false } to guarantee chronological packet order
                     p2pConn = peer.connect('sim-hosp-' + pin);
 
                     p2pConn.on('open', () => {
@@ -104,7 +125,6 @@
             }
         }
 
-        // --- CLOUD RELAY FALLBACK ---
         function connectViaAbly(pin) {
             ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
             ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
@@ -152,21 +172,25 @@
             });
         }
 
+        // --- WAKE LOCK & UI TRANSITION ---
+        let wakeLock = null;
+        async function enableWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log("Wake Lock denied: ", err);
+            }
+        }
+
         function onConnectedSuccess() {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('probe-screen').style.display = 'flex';
+            enableWakeLock();
         }
 
-        function firePulse() {
-            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                p2pConn.send({ fire: true });
-            } else if (activeTransport === 'ably' && ablyChannel) {
-                ablyChannel.publish('sensor-data', { fire: true });
-            }
-            if (navigator.vibrate) navigator.vibrate(100);
-        }
-
-        // --- NEW CALIBRATION & RESTART LOGIC ---
+        // --- GAME CONTROLS ---
         function sendNetworkCommand(payload) {
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
                 p2pConn.send(payload);
@@ -180,29 +204,17 @@
             sendNetworkCommand({ command: 'recenter' });
         }
 
-        // Attempt to catch Volume Down key
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'AudioVolumeDown' || e.key === 'VolumeDown' || e.keyCode === 209) {
-                sendNetworkCommand({ command: 'restart' });
-            }
-        });
+        function restartPlayground() {
+            if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            sendNetworkCommand({ command: 'restart' });
+        }
 
-        // Bulletproof Fallback: Double tap anywhere on the phone screen to restart
-        let lastTap = 0;
-        document.addEventListener('touchend', (e) => {
-            let currentTime = new Date().getTime();
-            let tapLength = currentTime - lastTap;
-            if (tapLength < 500 && tapLength > 0) {
-                sendNetworkCommand({ command: 'restart' });
-                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-            }
-            lastTap = currentTime;
-        });
+        function firePulse() {
+            sendNetworkCommand({ fire: true });
+            if (navigator.vibrate) navigator.vibrate(100);
+        }
 
-        // 2. DECOUPLED INPUT VARIABLES
-        let latestOrientation = null;
-        let dataLoop = null;
-        // --- 2. ZERO-LATENCY HARDWARE ROUTING ---
+        // --- HARDWARE SENSORS (STRICT MATH LOCK) ---
         let lastAblySendTime = 0;
 
         function startMotion() {
@@ -220,17 +232,19 @@
             }
         }
 
-        // The exact millisecond the physical hardware detects movement, it fires this function.
         function handleOrientation(event) {
-            // THE FIX: The Hardware Guard!
-            // If the phone's gyroscope skips a frame and returns an empty value, we instantly abort and ignore it.
-            if (event.alpha === null || event.beta === null || event.gamma === null) return;
+            // STRICT MATH GUARD: Ensures the hardware has actually warmed up and isn't sending undefined/null data
+            if (typeof event.alpha !== 'number' || typeof event.beta !== 'number' || typeof event.gamma !== 'number') {
+                return;
+            }
 
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                // Sends instantly with 0ms latency!
                 p2pConn.send(data);
             } else if (activeTransport === 'ably' && ablyChannel) {
+                // Throttle Ably slightly to protect your API limits
                 const now = Date.now();
                 if (now - lastAblySendTime > 33) {
                     ablyChannel.publish('sensor-data', data);
@@ -238,36 +252,6 @@
                 }
             }
         }
-
-        // 4. THE METRONOME (Upgraded to 60 FPS Hardware Sync)
-        let animationFrameId = null;
-        let lastP2PSendTime = 0;
-
-        function startDataLoop() {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            
-            function loop() {
-                if (latestOrientation) {
-                    const now = Date.now();
-                    
-                    // Lock P2P perfectly to 60 Frames Per Second (16ms)
-                    if (now - lastP2PSendTime >= 16) { 
-                        const data = { orientation: latestOrientation };
-                        
-                        if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                            p2pConn.send(data);
-                        } else if (activeTransport === 'ably' && ablyChannel) {
-                            if (now - lastAblySendTime > 40) { // Keep Ably throttled to save quota
-                                ablyChannel.publish('sensor-data', data);
-                                lastAblySendTime = now;
-                            }
-                        }
-                        lastP2PSendTime = now;
-                    }
-                }
-                // requestAnimationFrame completely eliminates timer drift by syncing with the screen!
-                animationFrameId = requestAnimationFrame(loop);
-            }
-            loop();
-        }
     </script>
+</body>
+</html>
