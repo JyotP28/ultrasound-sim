@@ -235,6 +235,28 @@ window.Tutorial = {
         this.renderStep();
     },
 
+    // NEW FUNCTION: Dynamically handles the game UI state!
+    updatePlaygroundUI: function(level) {
+        if (level === 1) {
+            document.getElementById('hud-progress').innerHTML = 'STAGE 1 / 3';
+            document.getElementById('hud-title').innerText = 'Playground: Laser Trace';
+            document.getElementById('hud-instructions').innerText = 'The Circle';
+            document.getElementById('edu-details').innerHTML = 'Hold your phone upright and trace the laser over the orange targets using smooth <b>Fanning</b> and <b>Rocking</b> motions.<br><br>Paint them all green to advance!';
+        } else if (level === 2) {
+            document.getElementById('hud-progress').innerHTML = 'STAGE 2 / 3';
+            document.getElementById('hud-instructions').innerText = 'The Infinity Loop';
+            document.getElementById('edu-details').innerHTML = 'Combine your axes! Tracing this figure-8 requires continuous, diagonal, multi-axis probe manipulation.';
+        } else if (level === 3) {
+            document.getElementById('hud-progress').innerHTML = 'STAGE 3 / 3';
+            document.getElementById('hud-instructions').innerText = 'The Constellation';
+            document.getElementById('edu-details').innerHTML = 'Hard mode. Use precise, sharp directional changes to hit the scattered targets. If your wrist gets tangled, tap the <b style="color:#1f6feb;">⌖ ZERO PROBE</b> button on your phone to recalibrate.';
+        } else if (level === 'win') {
+            document.getElementById('hud-progress').innerHTML = 'COMPLETE';
+            document.getElementById('hud-instructions').innerHTML = '<span style="color:#44ff44;">Simulation Mastered!</span>';
+            document.getElementById('edu-details').innerHTML = '<h3 style="text-align:center;">Incredible Probe Control!</h3><p style="text-align:center; color:#8b949e;">You have successfully completed the entire interactive curriculum and mastered spatial transducer manipulation.</p>';
+        }
+    },
+
     renderStep: function() {
         this.stepComplete = false;
         let modData = this.curriculum[this.currentModule];
