@@ -98,6 +98,14 @@
         let ablyChannel = null;
         let ablyRealtime = null;
 
+        // THE FIX: A universal function to handle commands from the laptop
+        function handleHostCommand(data) {
+            if (data && data.command === 'sync_module') {
+                // Instantly un-hide the Fire Pulse button ONLY if we are in Module 1
+                document.getElementById('fire-btn').style.display = (data.module === 1) ? 'flex' : 'none';
+            }
+        }
+
         function connectToSim() {
             const pin = document.getElementById('pin-input').value;
             if (!pin) return;
@@ -128,6 +136,11 @@
                         clearTimeout(p2pTimeout);
                         activeTransport = 'p2p';
                         onConnectedSuccess();
+
+                        // THE FIX: Tell the P2P connection to listen for UI updates!
+                        p2pConn.on('data', (data) => {
+                            handleHostCommand(data);
+                        });
                     });
 
                     p2pConn.on('error', (err) => {
@@ -184,10 +197,9 @@
                         activeTransport = 'ably';
                         onConnectedSuccess();
 
+                        // THE FIX: Route Ably updates through the same handler
                         ablyChannel.subscribe('host-command', (message) => {
-                            if (message.data && message.data.command === 'sync_module') {
-                                document.getElementById('fire-btn').style.display = (message.data.module === 1) ? 'flex' : 'none';
-                            }
+                            handleHostCommand(message.data);
                         });
                     });
                 });
