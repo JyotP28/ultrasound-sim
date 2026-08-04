@@ -202,7 +202,6 @@ let ablyRealtime = null;
 let ablyChannel = null;
 
 function handleIncomingData(data) {
-    function handleIncomingData(data) {
     // 1. Intercept new commands from the phone
     if (data.command === 'recenter' && window.recenterPlayground) {
         window.recenterPlayground();
@@ -212,17 +211,21 @@ function handleIncomingData(data) {
         window.resetGame();
         return;
     }
-    
-    if (data.fire === true) {
-        Tutorial.evaluateAction('fire_pulse');
-        if (typeof triggerPulseAnimation === 'function') triggerPulseAnimation();
+
+    // 2. Handle Orientation Data
+    if (data.orientation) {
+        const euler = new THREE.Euler(
+            THREE.MathUtils.degToRad(data.orientation.beta || 0),
+            THREE.MathUtils.degToRad(data.orientation.alpha || 0),
+            THREE.MathUtils.degToRad(-data.orientation.gamma || 0),
+            'YXZ'
+        );
+        window.probeState.currentQuat.setFromEuler(euler);
     }
 
-    if (data.orientation) {
-        if (Tutorial.currentModule === 2) Tutorial.evaluateAction('sweep_start'); 
-        if (typeof window.updateGlobalIMU === 'function') {
-            window.updateGlobalIMU(data.orientation);
-        }
+    // 3. Handle Fire Pulse
+    if (data.fire) {
+        if (window.triggerPulse) window.triggerPulse();
     }
 }
 
@@ -330,4 +333,3 @@ window.addEventListener('load', () => {
         updateStatusUI();
     }
 });
-}
