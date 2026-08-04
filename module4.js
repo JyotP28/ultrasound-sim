@@ -118,19 +118,15 @@ window.animateMod4 = function() {
         const euler = new THREE.Euler().setFromQuaternion(mod4ProbePlane.quaternion, 'YXZ');
         
         if (window.Tutorial.evaluateAction) {
-            // THE FIX: Reordered to match Fanning -> Rocking -> Rotating!
-            
-            // Step 1: FANNING (Forward/Back = X Axis Pitch)
+            // Step 1: FANNING (X-Axis Pitch)
             if (window.Tutorial.currentStep === 1 && Math.abs(euler.x) > 0.15) {
                 window.Tutorial.evaluateAction('fan_clot');
             }
-            
-            // Step 2: ROCKING (Side-to-Side = Z Axis Roll)
+            // Step 2: ROCKING (Z-Axis Roll)
             if (window.Tutorial.currentStep === 2 && Math.abs(euler.z) > 0.15) {
                 window.Tutorial.evaluateAction('rock_center');
             }
-            
-            // Step 3: ROTATING (Twisting = Y Axis Yaw)
+            // Step 3: ROTATION (Y-Axis Yaw)
             if (window.Tutorial.currentStep === 3 && Math.abs(euler.y) > 1.0) {
                 window.Tutorial.evaluateAction('rotate_long');
             }

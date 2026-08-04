@@ -11,17 +11,65 @@
             background-color: #0d1117; 
             color: white; 
             overflow: hidden; 
-            touch-action: none; 
+            touch-action: none; /* Prevents accidental pull-to-refresh */
         }
-        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        input { font-size: 24px; padding: 15px; width: 60%; text-align: center; border-radius: 8px; border: 1px solid #30363d; background: #161b22; color: white; margin-bottom: 20px; }
-        button.connect-btn { font-size: 20px; padding: 15px 40px; border-radius: 8px; border: none; background: #238636; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4); }
-        #status { margin-top: 20px; font-size: 16px; color: #8b949e; }
+        
+        /* THE FIX: Restored screen layout to perfectly center everything */
+        .screen { 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            width: 100vw;
+            box-sizing: border-box;
+            padding: 20px;
+        }
+        
+        #login-screen { display: flex; } /* Overrides the display:none at startup */
+
+        h1, h2 { color: #58a6ff; margin-bottom: 10px; text-align: center; }
+        
+        input { 
+            font-size: 24px; padding: 15px; width: 80%; max-width: 300px; 
+            text-align: center; border-radius: 8px; border: 1px solid #30363d; 
+            background: #161b22; color: white; margin-bottom: 20px; 
+        }
+
+        /* Beautiful, chunky, tappable buttons */
+        button {
+            font-size: 20px; padding: 20px; width: 100%; max-width: 300px;
+            border-radius: 12px; border: none; color: white; font-weight: bold; 
+            cursor: pointer; margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.96); } /* Satisfying tap feedback */
+
+        .connect-btn { background: #238636; }
+        #zero-btn { background: #1f6feb; }
+        #gyro-btn { background: #9b59b6; }
+        
+        /* Massive round target for the thumb to hit blindly */
+        #fire-btn { 
+            background: #da3633; 
+            width: 220px; height: 220px; 
+            border-radius: 50%; 
+            font-size: 26px;
+            margin-top: 30px;
+            box-shadow: 0 4px 20px rgba(218, 54, 51, 0.4);
+            display: none; /* Hidden by default until Module 1 */
+            align-items: center;
+            justify-content: center;
+        }
+        #fire-btn:active { background: #b62321; }
+
+        #status { margin-top: 20px; font-size: 16px; color: #8b949e; text-align: center; }
     </style>
 </head>
 <body>
 
-    <div id="login-screen">
+    <div id="login-screen" class="screen">
         <h1 style="color: #58a6ff; margin-bottom: 10px;">Ultrasound Probe</h1>
         <p style="margin-bottom: 30px; color: #8b949e; text-align: center; width: 80%;">Enter the Room PIN displayed on your laptop to connect.</p>
         
@@ -33,9 +81,7 @@
 
     <div id="probe-screen" class="screen">
         <h2>Transducer Active</h2>
-        <!-- THE FIX: The Safe Zero Probe Button -->
-        <button onclick="recenterProbe()" style="background-color: #1f6feb; width: 100%; max-width: 300px; margin-bottom: 20px;">⌖ ZERO PROBE</button>
-        
+        <button id="zero-btn" onclick="recenterProbe()">⌖ ZERO PROBE</button>
         <button id="gyro-btn" onclick="startMotion()">1. ENABLE MOTION</button>
         <button id="fire-btn" onclick="firePulse()">FIRE PULSE</button>
     </div>
@@ -203,7 +249,6 @@
         }
 
         function handleOrientation(event) {
-            // Strict Math Guard protects against empty/null frames
             if (typeof event.alpha !== 'number' || typeof event.beta !== 'number' || typeof event.gamma !== 'number') {
                 return;
             }
@@ -212,7 +257,6 @@
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                // Strict 60Hz limit (16ms) prevents WebRTC packet-clumping!
                 if (now - lastP2PSendTime > 16) {
                     p2pConn.send(data);
                     lastP2PSendTime = now;

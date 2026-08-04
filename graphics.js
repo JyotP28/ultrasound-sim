@@ -22,7 +22,7 @@ const rendererUS = new THREE.WebGLRenderer({ antialias: true });
 rendererUS.setSize(viewportWidth, viewportHeight);
 document.getElementById('canvas-container-us').appendChild(rendererUS.domElement);
 
-// Safe startup without overwriting the network math!
+// Safe startup state integration with app.js
 window.probeState = window.probeState || {};
 if (!window.probeState.currentQuat) {
     window.probeState.currentQuat = new THREE.Quaternion();
@@ -92,12 +92,12 @@ window.triggerPulse = function() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // THE FIX: The Buttery Smooth Shock Absorber is Back!
-    // It glides 40% of the way to the target every single frame, eliminating all jitter.
+    // The Shock Absorber: Smooths incoming network data to perfectly eliminate visual jitter
     if (window.probeState.currentQuat && window.probeState.targetQuat && window.probeState.currentQuat.isQuaternion) {
-        window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.1);
+        window.probeState.currentQuat.slerp(window.probeState.targetQuat, 0.4);
     }
 
+    // Module 1 Rendering Logic
     if (window.Tutorial && window.Tutorial.currentModule === 1 && mod1Group) {
         if (window.probeState.currentQuat && window.probeState.currentQuat.isQuaternion) {
             mod1Group.quaternion.copy(window.probeState.currentQuat);
@@ -139,6 +139,7 @@ function animate() {
         }
     }
 
+    // Ping the active module loops
     if (typeof window.animateMod2 === 'function') window.animateMod2();
     if (typeof window.animateMod3 === 'function') window.animateMod3();
     if (typeof window.animateMod4 === 'function') window.animateMod4(); 
@@ -147,7 +148,6 @@ function animate() {
     renderer3D.render(scene3D, camera3D);
     rendererUS.render(sceneUS, cameraUS);
 }
-
 
 window.addEventListener('resize', () => {
     viewportWidth = container3D.clientWidth;
