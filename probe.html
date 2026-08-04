@@ -222,13 +222,15 @@
 
         // The exact millisecond the physical hardware detects movement, it fires this function.
         function handleOrientation(event) {
+            // THE FIX: The Hardware Guard!
+            // If the phone's gyroscope skips a frame and returns an empty value, we instantly abort and ignore it.
+            if (event.alpha === null || event.beta === null || event.gamma === null) return;
+
             const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
             
             if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
-                // UNLEASHED: Send immediately over P2P with 0ms artificial delay!
                 p2pConn.send(data);
             } else if (activeTransport === 'ably' && ablyChannel) {
-                // We keep Ably slightly throttled ONLY so you don't burn through your free quotas
                 const now = Date.now();
                 if (now - lastAblySendTime > 33) {
                     ablyChannel.publish('sensor-data', data);

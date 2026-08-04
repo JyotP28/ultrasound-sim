@@ -182,28 +182,23 @@ function updateTrail(hitPoint) {
     const positions = trailLine.geometry.attributes.position.array;
     const radarPositions = radarTrailLine.geometry.attributes.position.array;
     
-    for (let i = 0; i < MAX_TRAIL_POINTS; i++) {
-        if (i < trailPoints.length) {
-            positions[i * 3] = trailPoints[i].x;
-            positions[i * 3 + 1] = trailPoints[i].y + 0.02; 
-            positions[i * 3 + 2] = trailPoints[i].z;
-            
-            radarPositions[i * 3] = trailPoints[i].x * RADAR_SCALE;
-            radarPositions[i * 3 + 1] = -trailPoints[i].z * RADAR_SCALE;
-            radarPositions[i * 3 + 2] = 0.05; 
-        } else {
-            let lastPt = trailPoints[trailPoints.length - 1];
-            positions[i * 3] = lastPt.x;
-            positions[i * 3 + 1] = lastPt.y + 0.02;
-            positions[i * 3 + 2] = lastPt.z;
-            
-            radarPositions[i * 3] = lastPt.x * RADAR_SCALE;
-            radarPositions[i * 3 + 1] = -lastPt.z * RADAR_SCALE;
-            radarPositions[i * 3 + 2] = 0.05;
-        }
+    // We only iterate through the EXACT number of points we have
+    for (let i = 0; i < trailPoints.length; i++) {
+        positions[i * 3] = trailPoints[i].x;
+        positions[i * 3 + 1] = trailPoints[i].y + 0.02; 
+        positions[i * 3 + 2] = trailPoints[i].z;
+        
+        radarPositions[i * 3] = trailPoints[i].x * RADAR_SCALE;
+        radarPositions[i * 3 + 1] = -trailPoints[i].z * RADAR_SCALE;
+        radarPositions[i * 3 + 2] = 0.05; 
     }
+    
     trailLine.geometry.attributes.position.needsUpdate = true;
     radarTrailLine.geometry.attributes.position.needsUpdate = true;
+
+    // THE FIX: Tell the 3D Engine to stop connecting fake/empty points to the center!
+    trailLine.geometry.setDrawRange(0, trailPoints.length);
+    radarTrailLine.geometry.setDrawRange(0, trailPoints.length);
 }
 
 function createLiveHUD() {
