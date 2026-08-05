@@ -2,24 +2,86 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ultrasound 101: Interactive Curriculum</title>
     <link rel="stylesheet" href="styles.css">
     
     <!-- QR Code Generator Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- THE FIX: Mobile Responsive Overrides -->
+    <style>
+        @media (max-width: 768px) {
+            /* 1. Stack the Landing Page vertically */
+            .landing-card {
+                flex-direction: column !important;
+                max-width: 90% !important;
+                max-height: 95vh !important;
+                overflow-y: auto !important;
+            }
+            .landing-left, .landing-right {
+                width: 100% !important;
+                padding: 25px !important;
+                border-left: none !important;
+                border-top: 1px solid #30363d !important;
+                box-sizing: border-box;
+            }
+            
+            /* 2. Stack the Main App (Simulations on TOP, Text on BOTTOM) */
+            #app-container {
+                display: flex !important;
+                flex-direction: column-reverse !important; 
+                height: 100vh !important;
+                overflow: hidden !important;
+            }
+
+            /* 3. Adjust Panel Heights for Touch Screens */
+            #simulation-panel {
+                width: 100% !important;
+                height: 55vh !important;
+                flex: none !important;
+                border-bottom: 3px solid #1f6feb !important;
+            }
+            #education-panel {
+                width: 100% !important;
+                height: 45vh !important;
+                flex: none !important;
+                border-right: none !important;
+                overflow-y: auto !important;
+            }
+
+            /* 4. Fix typography and padding for mobile readability */
+            h1 { font-size: 24px !important; }
+            .edu-header h1 { font-size: 18px !important; }
+            .edu-body { padding: 15px !important; }
+            .clinical-text { font-size: 14px !important; line-height: 1.4 !important; }
+            
+            /* 5. Center the Footer QR Code cleanly */
+            .edu-footer { 
+                flex-direction: column !important; 
+                gap: 15px !important; 
+                text-align: center !important; 
+                padding: 15px !important;
+            }
+            .edu-footer > div { text-align: center !important; }
+            
+            /* Ensure the Frequency Slider fits */
+            #clinical-console { bottom: 5px !important; right: 5px !important; }
+            .console-group { padding: 5px 10px !important; font-size: 12px !important; }
+        }
+    </style>
 </head>
 <body>
    <!-- ==========================================
          LANDING PAGE OVERLAY
          ========================================== -->
-    <!-- 1. UNIFIED LANDING PAGE CARD -->
     <div id="landing-page" style="position: absolute; width: 100%; height: 100vh; background: rgba(13, 17, 23, 0.95); z-index: 2000; display: flex; align-items: center; justify-content: center;">
         
-        <div style="display: flex; flex-direction: row; background: #161b22; border: 1px solid #30363d; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); overflow: hidden;">
+        <!-- Added 'landing-card' classes for the mobile CSS to target -->
+        <div class="landing-card" style="display: flex; flex-direction: row; background: #161b22; border: 1px solid #30363d; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); overflow: hidden; max-width: 800px;">
             
             <!-- Left Side: Main Content -->
-            <div style="padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 400px;">
+            <div class="landing-left" style="padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; max-width: 450px;">
                 <h1 style="color: #58a6ff; margin-top: 0; text-align: center; margin-bottom: 5px;">Ultrasound Physics & Mechanics</h1>
                 <h4 style="color: #ffffff; margin-top: 0; margin-bottom: 25px; text-align: center; font-weight: normal;">Interactive Sonography Simulator</h4>
                 <p style="text-align: center; color: #8b949e; margin-bottom: 30px; font-size: 14px; line-height: 1.5;">Welcome to the diagnostic sonography training module. You will use your smartphone as a spatial transducer to learn the physics of sound waves, echogenicity, and clinical probe manipulation in a full 3D environment.</p>
@@ -30,20 +92,23 @@
             </div>
 
             <!-- Right Side: Landing Page QR -->
-            <div style="padding: 40px; background: #0d1117; border-left: 1px solid #30363d; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <div style="color: #8b949e; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px;">SCAN TO CONNECT PHONE</div>
+            <div class="landing-right" style="padding: 40px; background: #0d1117; border-left: 1px solid #30363d; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="color: #8b949e; font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 15px; text-align: center;">SCAN TO CONNECT TRANSDUCER</div>
                 <div id="qr-landing" style="background: white; padding: 10px; border-radius: 8px;"></div>
             </div>
             
         </div>
     </div>
 
-    <!-- THE FIX: The Calibration Intercept Modal (Hidden by default) -->
+    <!-- ==========================================
+         CALIBRATION INTERCEPT MODAL
+         ========================================== -->
     <div id="calibration-overlay" style="display: none; position: absolute; width: 100%; height: 100vh; background: rgba(13, 17, 23, 0.85); z-index: 1500; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
-        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; max-width: 450px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
-            <h2 style="color: #58a6ff; margin-top: 0;">Calibrate Your Transducer</h2>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 40px; max-width: 450px; width: 85%; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); box-sizing: border-box;">
+            <div style="font-size: 45px; margin-bottom: 15px;">📱</div>
+            <h2 style="color: #58a6ff; margin-top: 0; font-size: 22px;">Calibrate Your Transducer</h2>
             <p style="color: #8b949e; line-height: 1.6; margin-bottom: 25px; font-size: 15px;">
-                For accurate 3D spatial tracking, please lay your phone <b>completely flat on a table on its back</b> (screen facing up).<br><br>
+                For accurate 3D spatial tracking, please lay your probe phone <b>completely flat on a table on its back</b>.<br><br>
                 Once it is flat, tap the blue <b style="color:#1f6feb;">⌖ ZERO PROBE</b> button on your phone screen to establish your baseline coordinates.
             </p>
             <button onclick="document.getElementById('calibration-overlay').style.display='none'" style="background: #238636; padding: 12px 35px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; font-size: 16px;">Got It</button>
@@ -64,13 +129,13 @@
                 <div id="edu-details" class="clinical-text">Connecting to simulation engine...</div>
             </div>
             
-            <!-- DESKTOP NAVIGATION CONTROLS -->
+            <!-- NAVIGATION CONTROLS -->
             <div class="edu-controls">
                 <button id="btn-prev" class="nav-btn" onclick="Tutorial.goBack()">&#8592; Previous</button>
-                <button id="btn-next" class="nav-btn" onclick="Tutorial.goForward()">Next &#8594;</button>
+                <button id="btn-next" class="nav-btn" onclick="Tutorial.goForward()" style="display:none;">Next &#8594;</button>
             </div>
 
-            <!-- THE FIX: Updated Sidebar Network Footer with Mini QR -->
+            <!-- NETWORK FOOTER -->
             <div class="edu-footer" style="padding: 20px; background: #161b22; border-top: 1px solid #30363d; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 20px;">
                 <div style="text-align: right;">
                     <div id="status" style="color: #ffcc00; font-size: 14px; font-weight: bold; margin-bottom: 5px;">Initializing Network...</div>
@@ -105,26 +170,16 @@
 
     <!-- ==========================================
          LIBRARIES & APPLICATION LOGIC 
-         (Order is strictly critical for successful loading)
          ========================================== -->
-    
-    <!-- 1. The 3D Engine Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-    <!-- 2. Network Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
     <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
 
-    <!-- 3. Your Custom 3D Graphics Logic -->
     <script src="graphics.js"></script>
-
-    <!-- 4. Your Curriculum Modules -->
     <script src="module2.js"></script>
     <script src="module3.js"></script>
     <script src="module4.js"></script>
     <script src="playground.js"></script> 
-
-    <!-- 5. The Master App Engine (must load last) -->
     <script src="app.js"></script>
 
 </body>
