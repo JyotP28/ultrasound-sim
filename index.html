@@ -87,6 +87,10 @@
                     Pair Phone Probe
                 </button>
 
+                <button class="btn-about" onclick="openAboutModal()" title="Project origin and mission">
+                    About
+                </button>
+
                 <div class="status-pill">
                     <span id="status-dot" class="status-dot"></span>
                     <span id="status">Waiting for probe...</span>
@@ -234,6 +238,92 @@
     </div>
 
     <!-- ==========================================================================
+         ABOUT PROJECT MODAL
+         ========================================================================== -->
+    <div id="about-modal" onclick="if(event.target===this) closeAboutModal()">
+        <div class="about-modal-card">
+            <div class="about-header">
+                <div class="about-title-group">
+                    <span class="about-badge">Project Origin &amp; Vision</span>
+                    <h2 class="about-title">SONO-ACADEMY</h2>
+                    <span class="about-subtitle">Accessible Ultrasound Psychomotor Simulation</span>
+                </div>
+                <button class="about-close-btn" onclick="closeAboutModal()" title="Close">&times;</button>
+            </div>
+
+            <div class="about-body">
+                <div class="about-author-strip">
+                    <div>
+                        <div class="author-item-label">Developer</div>
+                        <div class="author-item-val">Jyot Patel</div>
+                        <div style="font-size:11px; color:var(--text-muted);">Veterinary Student</div>
+                        <div style="font-size:11px; color:var(--text-secondary);">Washington State University CVM</div>
+                    </div>
+                    <div>
+                        <div class="author-item-label">Faculty Mentor</div>
+                        <div class="author-item-val">Dr. Julie Cary, DVM, MS, DACVS</div>
+                        <div style="font-size:11px; color:var(--text-muted);">Clinical Professor &amp; Simulation Lead</div>
+                        <div style="font-size:11px; color:var(--text-secondary);">Washington State University CVM</div>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-section-heading">The Spark</div>
+                    <p>
+                        After my faculty mentor, Dr. Julie Cary, shared a paper on ultrasound simulation with me (<em>SHAPES</em>, McGaffey et al., JVME 2026), I started wondering why opportunities to practice healthcare skills at home are still so limited. High-end clinical ultrasound units and commercial mannequin phantoms cost tens of thousands of dollars, naturally restricting hands-on transducer practice to scheduled, high-stakes laboratories.
+                    </p>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-section-heading">Everyday Hardware as a Clinical Transducer</div>
+                    <p>
+                        Our smartphones have accelerometers, gyroscopes, and increasingly powerful software. Could we use them to make ultrasound practice more accessible, letting students build familiarity with probe movements outside the classroom?
+                    </p>
+                    <p>
+                        I started building a simulator to explore that idea. It is far from finished, but I wanted to see whether something I felt should exist could actually be built. By linking a mobile device over low-latency WebRTC data channels to a desktop GPU raymarching shader, the phone acts directly as a spatial transducer probe.
+                    </p>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-section-heading">Embracing AI in Medical Education</div>
+                    <p>
+                        I have very little formal computer science experience, and AI has made experimenting with ideas like this far more approachable than I expected. Rather than fearing AI in healthcare education, I believe we should actively embrace it to enhance the student experience by building intuitive, student-centered learning tools that democratize simulation.
+                    </p>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-section-heading">A Proof of Concept</div>
+                    <p>
+                        I think healthcare education has a lot of room to catch up with what is possible in simulation. I am sharing this as a proof of concept, not a finished product, but hopefully it encourages others to experiment with ideas of their own.
+                    </p>
+                    <div class="about-quote">
+                        "Sometimes the first step toward a tool that should exist is simply trying to build it."
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <div class="about-tags">
+                        <span class="about-tag">#VeterinaryEducation</span>
+                        <span class="about-tag">#Simulation</span>
+                        <span class="about-tag">#AI</span>
+                        <span class="about-tag">#OpenSource</span>
+                        <span class="about-tag">#EdTech</span>
+                    </div>
+                </div>
+
+                <div class="about-reference">
+                    <strong>Reference:</strong> McGaffey et al. (2026). <em>Skillful Handling and Accurate Positioning in Echographic Simulation (SHAPES): Assessment of an Equine Abdominal Ultrasound Simulator for Veterinary Students</em>. Journal of Veterinary Medical Education (JVME).
+                </div>
+            </div>
+
+            <div class="about-footer">
+                <span>Washington State University College of Veterinary Medicine</span>
+                <a href="about.html" target="_blank" style="color:var(--accent-cyan); text-decoration:none; font-weight:600;">Open Standalone Page &rarr;</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
          APPLICATION SCRIPTS
          ========================================================================== -->
     <script src="graphics.js"></script>
@@ -245,8 +335,6 @@
 
     <script>
         // ── Mobile / Desktop detection ──────────────────────────────────────
-        // If the viewport is narrower than 900px (phone/tablet), hide the
-        // workstation and show the "open on desktop" redirect screen.
         (function() {
             const isMobile = window.matchMedia('(max-width: 900px)').matches
                           || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -265,27 +353,22 @@
             if (dropdown) dropdown.classList.toggle('show');
         }
 
-        // ── Left-panel tab switching ────────────────────────────────────────
-        function switchLeftPanel(tabName) {
-            const tabCurriculum = document.getElementById('tab-curriculum');
-            const tabInspector  = document.getElementById('tab-inspector');
-            const viewCurriculum = document.getElementById('view-curriculum');
-            const viewInspector  = document.getElementById('view-inspector');
-            if (tabName === 'curriculum') {
-                tabCurriculum.classList.add('active');
-                tabInspector.classList.remove('active');
-                viewCurriculum.style.display = 'flex';
-                viewInspector.style.display  = 'none';
-            } else {
-                tabInspector.classList.add('active');
-                tabCurriculum.classList.remove('active');
-                viewCurriculum.style.display = 'none';
-                viewInspector.style.display  = 'flex';
-            }
+        // ── About Modal controls ────────────────────────────────────────────
+        function openAboutModal() {
+            const modal = document.getElementById('about-modal');
+            if (modal) modal.classList.add('show');
         }
 
+        function closeAboutModal() {
+            const modal = document.getElementById('about-modal');
+            if (modal) modal.classList.remove('show');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAboutModal();
+        });
+
         // ── KaTeX: render math in the edu panel after every step load ───────
-        // Called from app.js renderStep() after innerHTML is written.
         window.renderMath = function() {
             const target = document.getElementById('edu-details');
             if (!target || typeof renderMathInElement === 'undefined') return;

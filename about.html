@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About SONO-ACADEMY | Accessible Ultrasound Simulation</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            overflow-y: auto !important;
+            height: auto !important;
+            min-height: 100vh;
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            padding: 40px 20px 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .standalone-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-medium);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 760px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+            overflow: hidden;
+        }
+
+        .standalone-nav {
+            width: 100%;
+            max-width: 760px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-back {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-hairline);
+            color: var(--accent-cyan);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-back:hover {
+            background: var(--bg-surface);
+            border-color: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="standalone-nav">
+        <a href="index.html" class="btn-back">&larr; Back to Workstation</a>
+        <span style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">SONO-ACADEMY &bull; WSU CVM</span>
+    </div>
+
+    <main class="standalone-card">
+        <div class="about-header" style="padding: 28px 32px 20px;">
+            <div class="about-title-group">
+                <span class="about-badge">Project Origin &amp; Vision</span>
+                <h1 class="about-title" style="font-size: 24px; margin-top: 8px;">SONO-ACADEMY</h1>
+                <span class="about-subtitle" style="font-size: 14px;">Accessible Clinical Ultrasound Psychomotor Simulation</span>
+            </div>
+        </div>
+
+        <div class="about-body" style="padding: 32px; gap: 24px;">
+            <div class="about-author-strip" style="padding: 16px 20px;">
+                <div>
+                    <div class="author-item-label">Developer</div>
+                    <div class="author-item-val" style="font-size: 14px;">Jyot Patel</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Veterinary Student</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Washington State University College of Veterinary Medicine</div>
+                </div>
+                <div>
+                    <div class="author-item-label">Faculty Mentor</div>
+                    <div class="author-item-val" style="font-size: 14px;">Dr. Julie Cary, DVM, MS, DACVS</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Clinical Professor &amp; Director of Simulation</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Washington State University College of Veterinary Medicine</div>
+                </div>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-heading">The Spark</div>
+                <p>
+                    After my faculty mentor, Dr. Julie Cary, shared a paper on ultrasound simulation with me (<em>SHAPES</em>, McGaffey et al., JVME 2026), I started wondering why opportunities to practice healthcare skills at home are still so limited. High-end clinical ultrasound units and commercial mannequin phantoms cost tens of thousands of dollars, naturally restricting hands-on transducer practice to scheduled, high-stakes laboratories.
+                </p>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-heading">Everyday Hardware as a Clinical Transducer</div>
+                <p>
+                    Our smartphones have accelerometers, gyroscopes, and increasingly powerful software. Could we use them to make ultrasound practice more accessible, letting students build familiarity with probe movements outside the classroom?
+                </p>
+                <p>
+                    I started building a simulator to explore that idea. It is far from finished, but I wanted to see whether something I felt should exist could actually be built. By linking a mobile device over low-latency WebRTC data channels to a desktop GPU raymarching shader, the phone acts directly as a spatial transducer probe.
+                </p>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-heading">Embracing AI in Medical Education</div>
+                <p>
+                    I have very little formal computer science experience, and AI has made experimenting with ideas like this far more approachable than I expected. Rather than fearing AI in healthcare education, I believe we should actively embrace it to enhance the student experience—building intuitive, student-centered learning tools that democratize simulation.
+                </p>
+            </div>
+
+            <div class="about-section">
+                <div class="about-section-heading">A Proof of Concept</div>
+                <p>
+                    I think healthcare education has a lot of room to catch up with what is possible in simulation. I am sharing this as a proof of concept, not a finished product, but hopefully it encourages others to experiment with ideas of their own.
+                </p>
+                <div class="about-quote" style="font-size: 15px; padding: 14px 20px;">
+                    "Sometimes the first step toward a tool that should exist is simply trying to build it."
+                </div>
+            </div>
+
+            <div class="about-section">
+                <div class="about-tags">
+                    <span class="about-tag">#VeterinaryEducation</span>
+                    <span class="about-tag">#Simulation</span>
+                    <span class="about-tag">#AI</span>
+                    <span class="about-tag">#OpenSource</span>
+                    <span class="about-tag">#EdTech</span>
+                </div>
+            </div>
+
+            <div class="about-reference" style="padding: 16px 20px;">
+                <strong>Academic Reference:</strong><br>
+                McGaffey et al. (2026). <em>Skillful Handling and Accurate Positioning in Echographic Simulation (SHAPES): Assessment of an Equine Abdominal Ultrasound Simulator for Veterinary Students</em>. Journal of Veterinary Medical Education (JVME).
+            </div>
+        </div>
+
+        <div class="about-footer" style="padding: 18px 32px;">
+            <span>Washington State University College of Veterinary Medicine</span>
+            <a href="index.html" style="color: var(--accent-cyan); text-decoration: none; font-weight: 600;">Launch Simulation Workstation &rarr;</a>
+        </div>
+    </main>
+
+</body>
+</html>
