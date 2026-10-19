@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SONO-PROBE | Handheld Transducer Interface</title>
+    <style>
+        :root {
+            --bg-canvas: #070a12;
+            --bg-card: #0d131f;
+            --bg-elevated: #131a2b;
+            --border-hairline: rgba(148, 163, 184, 0.15);
+            --border-accent: rgba(56, 189, 248, 0.4);
+            --accent-cyan: #38bdf8;
+            --accent-blue: #2563eb;
+            --accent-emerald: #10b981;
+            --accent-ruby: #ef4444;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+            --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body { 
+            margin: 0; 
+            font-family: var(--font-sans); 
+            background-color: var(--bg-canvas); 
+            color: var(--text-primary); 
+            overflow: hidden; 
+            touch-action: none;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .screen { 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: space-between; 
+            height: 100vh; 
+            width: 100vw;
+            padding: 24px 20px;
+        }
+        
+        #login-screen { 
+            display: flex; 
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-hairline);
+            border-radius: 16px;
+            padding: 32px 24px;
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .probe-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        h1 { 
+            color: var(--text-primary); 
+            font-size: 20px; 
+            font-weight: 700;
+            margin-bottom: 6px; 
+            text-align: center; 
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        
+        input { 
+            font-size: 26px; 
+            font-family: var(--font-mono);
+            font-weight: 700;
+            letter-spacing: 4px;
+            padding: 14px; 
+            width: 100%;
+            text-align: center; 
+            border-radius: 10px; 
+            border: 1px solid var(--border-hairline); 
+            background: var(--bg-elevated); 
+            color: var(--accent-cyan); 
+            margin-bottom: 16px; 
+            outline: none;
+        }
+        input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+        }
+
+        .btn {
+            font-size: 15px; 
+            font-weight: 600;
+            padding: 15px 20px; 
+            width: 100%; 
+            border-radius: 10px; 
+            border: none; 
+            color: white; 
+            cursor: pointer; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+        }
+        .btn:active { transform: scale(0.97); }
+
+        .btn-connect { 
+            background: var(--accent-blue); 
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+        }
+
+        #status { 
+            font-size: 12px; 
+            font-family: var(--font-mono);
+            color: var(--text-muted); 
+            text-align: center; 
+            margin-top: 8px;
+        }
+
+        /* Top Bar in Active Probe Screen */
+        .probe-top-bar {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-hairline);
+        }
+
+        .probe-badge {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-hairline);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            box-shadow: 0 0 6px var(--accent-emerald);
+        }
+
+        /* Orientation Tilt Level / Horizon */
+        .tilt-container {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 1px solid var(--border-hairline);
+            background: var(--bg-card);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 12px 0;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+        }
+
+        .tilt-crosshair-h, .tilt-crosshair-v {
+            position: absolute;
+            background: rgba(148, 163, 184, 0.2);
+        }
+        .tilt-crosshair-h { width: 100%; height: 1px; }
+        .tilt-crosshair-v { height: 100%; width: 1px; }
+
+        .tilt-bubble {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+            position: absolute;
+            transition: transform 0.05s ease-out;
+        }
+
+        .tilt-readout {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Action Buttons */
+        .btn-zero {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-accent);
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+        }
+
+        .btn-motion {
+            background: var(--accent-blue);
+            margin-bottom: 10px;
+        }
+        
+        /* Capacitive Transmit Pulse Pad */
+        #fire-btn { 
+            background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
+            width: 180px; 
+            height: 180px; 
+            border-radius: 50%; 
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.1s ease;
+        }
+        #fire-btn:active { 
+            transform: scale(0.94); 
+            box-shadow: 0 0 45px rgba(239, 68, 68, 0.7);
+        }
+
+        .safety-footnote {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.4;
+            max-width: 280px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN / CONNECT SCREEN -->
+    <div id="login-screen" class="screen">
+        <div class="login-card">
+            <div class="probe-icon" style="display:flex; justify-content:center; align-items:center; margin-bottom:12px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+            </div>
+            <h1>SONO-PROBE</h1>
+            <div class="subtitle">Connect this handheld device as an active spatial transducer.</div>
+            
+            <input type="number" id="pin-input" placeholder="ROOM PIN" pattern="[0-9]*" inputmode="numeric">
+            <button class="btn btn-connect" onclick="connectToSim()">Link to Workstation</button>
+            
+            <div id="status">Ready &bull; Enter 4-digit PIN</div>
+        </div>
+        <div class="safety-footnote">
+            Clinical Reminder: Maintain a secure 3-point transducer grip to prevent accidental drops.
+        </div>
+    </div>
+
+    <!-- ACTIVE TRANSDUCER CONTROL SCREEN -->
+    <div id="probe-screen" class="screen">
+        
+        <div class="probe-top-bar">
+            <div>
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.5px;">SONO-PROBE</div>
+                <div style="font-size: 10px; color: var(--text-muted);">Curvilinear Array C5-2</div>
+            </div>
+            <div class="probe-badge">
+                <span class="pulse-dot"></span>
+                <span id="transport-badge">P2P LINKED</span>
+            </div>
+        </div>
+
+        <!-- Real-Time Artificial Horizon / Tilt Bubble Level -->
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div class="tilt-container">
+                <div class="tilt-crosshair-h"></div>
+                <div class="tilt-crosshair-v"></div>
+                <div id="tilt-bubble" class="tilt-bubble"></div>
+            </div>
+            <div class="tilt-readout">
+                <span>PITCH: <b id="val-pitch">0°</b></span>
+                <span>ROLL: <b id="val-roll">0°</b></span>
+                <span>YAW: <b id="val-yaw">0°</b></span>
+            </div>
+        </div>
+
+        <!-- Transmit Pulse Trigger (Module 1) -->
+        <button id="fire-btn" onclick="firePulse()">
+            Transmit<br>Pulse
+        </button>
+
+        <!-- Motion & Zero Calibration Controls -->
+        <div style="width: 100%; max-width: 320px;">
+            <button id="zero-btn" class="btn btn-zero" onclick="recenterProbe()">
+                CALIBRATE BASELINE (ZERO)
+            </button>
+            <button id="gyro-btn" class="btn btn-motion" onclick="startMotion()">
+                1. ENABLE GYROSCOPE
+            </button>
+        </div>
+
+        <div class="safety-footnote">
+            SHAPES Tip: Keep transducer perpendicular (90°) to scanning surface.
+        </div>
+
+    </div>
+
+    <!-- PeerJS & Ably Networking -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+
+    <script>
+        const ABLY_API_KEY = 'a2d6Dg.n1367A:B_CKjjgBzmIV1wt743VG95MCHqBpSXKJp4AK3YQCUVo';
+
+        let activeTransport = null;
+        let p2pConn = null;
+        let ablyChannel = null;
+        let ablyRealtime = null;
+
+        function handleHostCommand(data) {
+            if (data && data.command === 'sync_module') {
+                const fireBtn = document.getElementById('fire-btn');
+                if (fireBtn) {
+                    fireBtn.style.display = (data.module === 1) ? 'flex' : 'none';
+                }
+            }
+        }
+
+        function connectToSim() {
+            const pin = document.getElementById('pin-input').value;
+            if (!pin) return;
+
+            document.getElementById('status').innerText = 'Establishing P2P link...';
+            document.getElementById('status').style.color = '#38bdf8';
+
+            let fallbackTriggered = false;
+
+            const triggerAblyFallback = (reason) => {
+                if (fallbackTriggered || activeTransport === 'p2p') return;
+                fallbackTriggered = true;
+                document.getElementById('status').innerText = 'Cloud Relay (' + reason + ')...';
+                connectViaAbly(pin);
+            };
+
+            const p2pTimeout = setTimeout(() => { triggerAblyFallback('Timeout'); }, 6000);
+
+            try {
+                const peer = new Peer();
+
+                peer.on('open', () => {
+                    p2pConn = peer.connect('sim-hosp-' + pin);
+
+                    p2pConn.on('open', () => {
+                        if (fallbackTriggered) return; 
+                        clearTimeout(p2pTimeout);
+                        activeTransport = 'p2p';
+                        onConnectedSuccess('P2P LINKED');
+
+                        p2pConn.on('data', (data) => {
+                            handleHostCommand(data);
+                        });
+                    });
+
+                    p2pConn.on('error', (err) => {
+                        clearTimeout(p2pTimeout);
+                        triggerAblyFallback('Data Error');
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    clearTimeout(p2pTimeout);
+                    triggerAblyFallback(err.type); 
+                });
+
+            } catch (err) {
+                clearTimeout(p2pTimeout);
+                triggerAblyFallback('Exception');
+            }
+        }
+
+        function connectViaAbly(pin) {
+            ablyRealtime = new Ably.Realtime({ key: ABLY_API_KEY, clientId: 'phone-probe' });
+            ablyChannel = ablyRealtime.channels.get('sim-hosp-' + pin);
+
+            ablyChannel.attach((attachErr) => {
+                if (attachErr) {
+                    document.getElementById('status').innerText = 'Cloud Relay Blocked';
+                    document.getElementById('status').style.color = '#ef4444';
+                    return;
+                }
+
+                ablyChannel.presence.get((err, members) => {
+                    if (err || !members) {
+                        document.getElementById('status').innerText = 'Room lookup failed';
+                        document.getElementById('status').style.color = '#ef4444';
+                        return;
+                    }
+
+                    const hostIsActive = members.some(m => m.clientId === 'laptop-host');
+
+                    if (!hostIsActive) {
+                        document.getElementById('status').innerText = 'Host Inactive or Invalid PIN';
+                        document.getElementById('status').style.color = '#ef4444';
+                        ablyRealtime.close();
+                        return;
+                    }
+
+                    ablyChannel.presence.enter('phone-probe', (enterErr) => {
+                        if (enterErr) {
+                            document.getElementById('status').innerText = 'Cloud Access Denied';
+                            document.getElementById('status').style.color = '#ef4444';
+                            return;
+                        }
+
+                        activeTransport = 'ably';
+                        onConnectedSuccess('CLOUD RELAY');
+
+                        ablyChannel.subscribe('host-command', (message) => {
+                            handleHostCommand(message.data);
+                        });
+                    });
+                });
+            });
+        }
+
+        let wakeLock = null;
+        async function enableWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.log("Wake Lock note: ", err);
+            }
+        }
+
+        function onConnectedSuccess(transportLabel) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('probe-screen').style.display = 'flex';
+            const badge = document.getElementById('transport-badge');
+            if (badge) badge.innerText = transportLabel;
+            enableWakeLock();
+            if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+        }
+
+        function recenterProbe() {
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send({ command: 'recenter' });
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', { command: 'recenter' });
+            }
+            if (navigator.vibrate) navigator.vibrate(60);
+        }
+
+        function firePulse() {
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                p2pConn.send({ fire: true });
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                ablyChannel.publish('sensor-data', { fire: true });
+            }
+            if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+        }
+
+        // ==========================================
+        // HARDWARE SENSORS & ARTIFICIAL HORIZON
+        // ==========================================
+        let lastAblySendTime = 0;
+        let lastP2PSendTime = 0;
+
+        function startMotion() {
+            const gyroBtn = document.getElementById('gyro-btn');
+            gyroBtn.innerText = "GYROSCOPE ACTIVE";
+            gyroBtn.style.backgroundColor = "var(--accent-emerald)";
+            
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission().then(permissionState => {
+                    if (permissionState === 'granted') {
+                        window.addEventListener('deviceorientation', handleOrientation);
+                    }
+                }).catch(console.error);
+            } else {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+        }
+
+        function handleOrientation(event) {
+            if (typeof event.alpha !== 'number' || typeof event.beta !== 'number' || typeof event.gamma !== 'number') {
+                return;
+            }
+
+            // Update on-screen horizon bubble
+            const bubble = document.getElementById('tilt-bubble');
+            const pitchElem = document.getElementById('val-pitch');
+            const rollElem = document.getElementById('val-roll');
+            const yawElem = document.getElementById('val-yaw');
+
+            if (bubble) {
+                // Clamp tilt to circle bounds (radius ~65px)
+                const bx = Math.max(-60, Math.min(60, event.gamma * 1.5));
+                const by = Math.max(-60, Math.min(60, event.beta * 1.5));
+                bubble.style.transform = `translate(${bx}px, ${by}px)`;
+            }
+            if (pitchElem) pitchElem.innerText = Math.round(event.beta) + '°';
+            if (rollElem) rollElem.innerText = Math.round(event.gamma) + '°';
+            if (yawElem) yawElem.innerText = Math.round(event.alpha) + '°';
+
+            const now = Date.now();
+            const data = { orientation: { alpha: event.alpha, beta: event.beta, gamma: event.gamma } };
+            
+            if (activeTransport === 'p2p' && p2pConn && p2pConn.open) {
+                if (now - lastP2PSendTime > 16) {
+                    p2pConn.send(data);
+                    lastP2PSendTime = now;
+                }
+            } else if (activeTransport === 'ably' && ablyChannel) {
+                if (now - lastAblySendTime > 40) {
+                    ablyChannel.publish('sensor-data', data);
+                    lastAblySendTime = now;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

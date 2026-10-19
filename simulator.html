@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SONO-ACADEMY | Clinical Ultrasound Workstation</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- External Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+
+    <!-- KaTeX: Mathematical Formula Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+
+    <!-- ======================================================
+         MOBILE REDIRECT: Shown only on phones/tablets.
+         JavaScript hides this and shows #workstation on desktop.
+         ====================================================== -->
+    <div id="mobile-redirect">
+        <div class="mobile-redirect-card">
+            <div class="mobile-redirect-logo">SONO-ACADEMY</div>
+            <div class="mobile-redirect-headline">Open on a Desktop or Laptop</div>
+            <p class="mobile-redirect-body">
+                This simulation requires a desktop or laptop computer as the main workstation.
+                Your smartphone is used as the <strong>ultrasound probe</strong> — the physical
+                device you hold and move in space.
+            </p>
+            <div class="mobile-redirect-steps">
+                <div class="mobile-step">
+                    <span class="mobile-step-num">1</span>
+                    <span>Open <strong>SONO-ACADEMY</strong> on a desktop or laptop browser.</span>
+                </div>
+                <div class="mobile-step">
+                    <span class="mobile-step-num">2</span>
+                    <span>A 4-digit <strong>Room PIN</strong> will appear prominently in the top-right corner of the workstation.</span>
+                </div>
+                <div class="mobile-step">
+                    <span class="mobile-step-num">3</span>
+                    <span>Scan the QR code shown in the workstation or navigate to <strong>probe.html</strong> on this phone and enter the PIN.</span>
+                </div>
+                <div class="mobile-step">
+                    <span class="mobile-step-num">4</span>
+                    <span>Hold your phone like a transducer and begin scanning.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         WORKSTATION INTERFACE (BOOTS DIRECTLY WITH ZERO BLOCKING MODALS)
+         ========================================================================== -->
+    <div id="workstation">
+        
+        <!-- TOP WORKSTATION STATUS & MODULE BAR -->
+        <header id="top-bar">
+            <div class="brand-section">
+                <span class="brand-badge">SONO</span>
+                <span class="brand-title">Clinical Sonography Workstation</span>
+                <span class="brand-sub">SHAPES Protocol</span>
+            </div>
+
+            <!-- Interactive Module Navigator -->
+            <nav id="module-nav">
+                <button class="mod-pill active" onclick="Tutorial.loadModule(1)">1. Physics</button>
+                <button class="mod-pill" onclick="Tutorial.loadModule(2)">2. Impedance</button>
+                <button class="mod-pill" onclick="Tutorial.loadModule(3)">3. Knobology</button>
+                <button class="mod-pill" onclick="Tutorial.loadModule(4)">4. Manipulations</button>
+                <button class="mod-pill" onclick="Tutorial.loadModule(5)">5. Orthogonal</button>
+                <button class="mod-pill" onclick="Tutorial.loadModule(6)">6. Playground</button>
+            </nav>
+
+            <!-- Transducer Pairing Station — PIN is the centrepiece -->
+            <div class="header-status">
+                <div class="pin-station">
+                    <span class="pin-label">ROOM PIN</span>
+                    <span id="room-display" class="pin-value">----</span>
+                </div>
+
+                <button class="btn-pair-toggle" onclick="togglePairingDropdown()">
+                    Pair Phone Probe
+                </button>
+
+                <div class="status-pill">
+                    <span id="status-dot" class="status-dot"></span>
+                    <span id="status">Waiting for probe...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- UNOBTRUSIVE TRANSDUCER PAIRING DROPDOWN -->
+        <div id="transducer-dropdown" class="transducer-dropdown">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-size:12px; font-weight:700; letter-spacing:0.5px; color:var(--text-primary);">HARDWARE TRANSDUCER LINK</span>
+                <button onclick="togglePairingDropdown()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">&times;</button>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+                <div id="qr-landing" class="qr-box"></div>
+                <div style="font-size:11px; color:var(--text-secondary); text-align:center; line-height:1.4;">
+                    Scan with smartphone or open <code>probe.html</code> in mobile browser.<br>
+                    Enter Room PIN shown in header bar.
+                </div>
+                <button class="btn-primary" style="width:100%; font-size:12px; padding:8px;" onclick="window.recenterFromDesktop()">
+                    Zero Transducer Baseline
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN SPLIT WORKSPACE -->
+        <main id="app-container">
+            
+            <!-- LEFT PANEL: CURRICULUM GUIDE -->
+            <aside id="education-panel">
+
+                <!-- Curriculum header -->
+                <div class="edu-header">
+                    <div id="hud-progress">MODULE 1 &bull; STEP 1 OF 2 &bull; ACOUSTIC PHYSICS</div>
+                    <h1 id="hud-title">The Pulse-Echo Principle</h1>
+                </div>
+
+                <div class="edu-body" id="view-curriculum">
+                    <!-- SHAPES Graduated Learning Mode Toggle (Clear vs. Opaque) -->
+                    <div class="phantom-toggle-bar" id="phantom-mode-selector" style="display:none;">
+                        <button class="toggle-btn active" id="btn-mode-clear" onclick="setPhantomMode('clear')">
+                            Clear Practice Volume
+                        </button>
+                        <button class="toggle-btn" id="btn-mode-opaque" onclick="setPhantomMode('opaque')">
+                            Opaque Test Volume
+                        </button>
+                    </div>
+
+                    <h2 id="hud-instructions">Initializing Curriculum...</h2>
+
+                    <!-- Dynamic Educational Content Area -->
+                    <div id="edu-details" style="display:flex; flex-direction:column; gap:14px;"></div>
+
+                    <!-- Immediate Formative Feedback Banner -->
+                    <div id="feedback-banner" class="feedback-banner"></div>
+                </div>
+
+                <footer class="edu-footer">
+                    <button id="btn-prev" class="nav-btn" onclick="Tutorial.goBack()">
+                        Previous Step
+                    </button>
+                    <button id="btn-next" class="nav-btn primary" onclick="Tutorial.goForward()" style="display:none;">
+                        Next Step
+                    </button>
+                </footer>
+
+            </aside>
+
+            <!-- RIGHT PANEL: SIMULATION DECK (3D SPATIAL + 2D MONITOR + CONSOLE) -->
+            <section id="simulation-panel">
+                
+                <!-- TOP 3D SPATIAL VIEWPORT -->
+                <div id="spatial-view" class="sim-viewport">
+                    <div class="hud-text top-left">
+                        <h3>SPATIAL VIEW (3D GEOMETRY)</h3>
+                        <span id="phantom-status-tag" style="color:var(--accent-cyan);">Clear Model (Training)</span>
+                    </div>
+
+                    <div id="canvas-container-3d"></div>
+
+                    <!-- Desktop Simulation Controls (fallback when phone is not connected) -->
+                    <div class="desktop-tester" id="desktop-controls">
+                        <div class="desktop-tester-header">
+                            <span>Desktop Controls</span>
+                            <span style="font-size:10px; color:var(--text-muted);">No phone required</span>
+                        </div>
+                        <label>
+                            Roll (Z): <input type="range" min="-45" max="45" value="0" oninput="simRotateZ(this.value)">
+                        </label>
+                        <label>
+                            Pitch (X): <input type="range" min="-45" max="45" value="0" oninput="simRotateX(this.value)">
+                        </label>
+                        <label>
+                            Yaw (Y): <input type="range" min="-90" max="90" value="0" oninput="simRotateY(this.value)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- BOTTOM 2D ULTRASOUND B-MODE MONITOR -->
+                <div id="us-monitor" class="sim-viewport">
+                    <!-- Sonographic Display Metadata Overlay -->
+                    <div class="hud-text top-left">
+                        SIM-CLINICAL &bull; PACS WORKSTATION<br>
+                        MI: 0.9 &nbsp; TIS: 0.2 &nbsp; FR: 30 FPS
+                    </div>
+                    
+                    <!-- Probe Orientation Notch Indicator -->
+                    <div class="screen-marker" title="Transducer Orientation Indicator"></div>
+                    
+                    <div class="hud-text top-right">
+                        Preset: Abdominal / General<br>
+                        <span id="hud-freq-display">Freq: 3.5 MHz</span>
+                    </div>
+
+                    <!-- Centimeter Depth Scale (Right Margin) -->
+                    <div class="depth-ruler">
+                        <div class="depth-tick">0cm</div>
+                        <div class="depth-tick">2cm</div>
+                        <div class="depth-tick">4cm</div>
+                        <div class="depth-tick">6cm</div>
+                        <div class="depth-tick">8cm</div>
+                        <div class="depth-tick">10cm</div>
+                    </div>
+                    <div class="focal-caret" title="Focal Zone">▶</div>
+
+                    <!-- Live Visuospatial Axis Orientation Badge -->
+                    <div id="axis-indicator" style="display:none;">
+                        <span style="color:var(--text-muted);">PLANE:</span>
+                        <span id="axis-badge" class="axis-badge badge-short">SHORT AXIS (TRANSVERSE)</span>
+                    </div>
+
+                    <div id="canvas-container-us"></div>
+                </div>
+
+                <!-- CLINICAL KNOBOLOGY CONSOLE -->
+                <div id="clinical-console">
+                    <div class="console-group" id="console-freq" style="opacity: 0; pointer-events: none;">
+                        <label>TRANSDUCER FREQUENCY: <span id="freq-val" style="color: var(--accent-cyan);">12.0</span> MHz</label>
+                        <input type="range" id="freq-slider" min="3.0" max="12.0" step="0.5" value="12.0" oninput="Tutorial.setFrequency(this.value)" style="direction: rtl;">
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- ==========================================================================
+         APPLICATION SCRIPTS
+         ========================================================================== -->
+    <script src="graphics.js"></script>
+    <script src="module2.js"></script>
+    <script src="module3.js"></script>
+    <script src="module4.js"></script>
+    <script src="playground.js"></script>
+    <script src="app.js"></script>
+
+    <script>
+        // ── Mobile / Desktop detection ──────────────────────────────────────
+        // If the viewport is narrower than 900px (phone/tablet), hide the
+        // workstation and show the "open on desktop" redirect screen.
+        (function() {
+            const isMobile = window.matchMedia('(max-width: 900px)').matches
+                          || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isMobile) {
+                document.getElementById('workstation').style.display = 'none';
+                document.getElementById('mobile-redirect').style.display = 'flex';
+            } else {
+                document.getElementById('workstation').style.display = 'flex';
+                document.getElementById('mobile-redirect').style.display = 'none';
+            }
+        })();
+
+        // ── Pairing Dropdown toggle ─────────────────────────────────────────
+        function togglePairingDropdown() {
+            const dropdown = document.getElementById('transducer-dropdown');
+            if (dropdown) dropdown.classList.toggle('show');
+        }
+
+        // ── Left-panel tab switching ────────────────────────────────────────
+        function switchLeftPanel(tabName) {
+            const tabCurriculum = document.getElementById('tab-curriculum');
+            const tabInspector  = document.getElementById('tab-inspector');
+            const viewCurriculum = document.getElementById('view-curriculum');
+            const viewInspector  = document.getElementById('view-inspector');
+            if (tabName === 'curriculum') {
+                tabCurriculum.classList.add('active');
+                tabInspector.classList.remove('active');
+                viewCurriculum.style.display = 'flex';
+                viewInspector.style.display  = 'none';
+            } else {
+                tabInspector.classList.add('active');
+                tabCurriculum.classList.remove('active');
+                viewCurriculum.style.display = 'none';
+                viewInspector.style.display  = 'flex';
+            }
+        }
+
+        // ── KaTeX: render math in the edu panel after every step load ───────
+        // Called from app.js renderStep() after innerHTML is written.
+        window.renderMath = function() {
+            const target = document.getElementById('edu-details');
+            if (!target || typeof renderMathInElement === 'undefined') return;
+            renderMathInElement(target, {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true  },
+                    { left: '\\[', right: '\\]', display: true  },
+                    { left: '$',  right: '$',  display: false },
+                    { left: '\\(', right: '\\)', display: false }
+                ],
+                throwOnError: false
+            });
+        };
+    </script>
+</body>
+</html>

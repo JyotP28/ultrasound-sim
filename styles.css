@@ -1,0 +1,1094 @@
+/* ==========================================================================
+   SONO-ACADEMY: Clinical Ultrasound Simulation Workstation
+   Professional Medical-Grade Stylesheet
+   ========================================================================== */
+
+:root {
+    --bg-canvas: #070a12;
+    --bg-panel: #0d131f;
+    --bg-surface: #121a2b;
+    --bg-surface-elevated: #172238;
+    --bg-monitor: #000205;
+    
+    --border-hairline: rgba(148, 163, 184, 0.12);
+    --border-medium: rgba(148, 163, 184, 0.22);
+    --border-accent: rgba(56, 189, 248, 0.45);
+    
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-highlight: #38bdf8;
+
+    --accent-cyan: #38bdf8;
+    --accent-blue: #2563eb;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-ruby: #ef4444;
+    --accent-purple: #8b5cf6;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   WORKSTATION SHELL LAYOUT
+   ========================================================================== */
+#workstation {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Top Workstation Header Bar */
+#top-bar {
+    height: 52px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+}
+
+.brand-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-badge {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.brand-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+
+.brand-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: 6px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border-hairline);
+}
+
+/* Module Stepper Bar */
+#module-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mod-pill {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mod-pill:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+}
+
+.mod-pill.active {
+    background: var(--bg-surface-elevated);
+    border-color: var(--border-accent);
+    color: var(--accent-cyan);
+    font-weight: 600;
+}
+
+.mod-pill.completed {
+    color: var(--accent-emerald);
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-amber);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.status-dot.connected {
+    background: var(--accent-emerald);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+/* Main Split Viewports */
+#app-container {
+    display: flex;
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 52px);
+    overflow: hidden;
+}
+
+/* ==========================================================================
+   LEFT PANEL: EDUCATIONAL SYLLABUS & LESSON MANUAL
+   ========================================================================== */
+#education-panel {
+    width: 38%;
+    min-width: 440px;
+    max-width: 580px;
+    background-color: var(--bg-panel);
+    border-right: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+.edu-header {
+    padding: 24px 28px 16px 28px;
+    border-bottom: 1px solid var(--border-hairline);
+    background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-panel) 100%);
+}
+
+#hud-progress {
+    color: var(--accent-cyan);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#hud-title {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+}
+
+.edu-body {
+    padding: 24px 28px;
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+#hud-instructions {
+    color: var(--text-primary);
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Educational Structured Cards */
+.edu-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    padding: 16px 18px;
+}
+
+.edu-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.clinical-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.clinical-text b, .clinical-text strong {
+    color: var(--text-primary);
+}
+
+.formula-callout {
+    background: rgba(30, 41, 59, 0.7);
+    border-left: 3px solid var(--accent-cyan);
+    border-radius: 0 6px 6px 0;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: #bae6fd;
+}
+
+.action-card {
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 8px;
+    padding: 14px 18px;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.action-card-header {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* SHAPES Clear vs Opaque Toggle Switch */
+.phantom-toggle-bar {
+    display: flex;
+    align-items: center;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 4px;
+}
+
+.toggle-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.toggle-btn.active {
+    background: var(--accent-blue);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+/* Immediate Formative Feedback Banner */
+.feedback-banner {
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    display: none;
+    animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feedback-success {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #a7f3d0;
+}
+
+.feedback-success b {
+    color: #34d399;
+}
+
+.feedback-hint {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fde68a;
+}
+
+.feedback-hint b {
+    color: #fbbf24;
+}
+
+/* Footer Navigation Controls */
+.edu-footer {
+    padding: 16px 28px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-hairline);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.nav-btn {
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-medium);
+    padding: 9px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: var(--text-secondary);
+}
+
+.nav-btn.primary {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: #ffffff;
+}
+
+.nav-btn.primary:hover {
+    background: #1d4ed8;
+}
+
+.nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ==========================================================================
+   RIGHT PANEL: SIMULATION DECK (3D + MONITOR + CONSOLE)
+   ========================================================================== */
+#simulation-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-canvas);
+    overflow: hidden;
+    position: relative;
+}
+
+.sim-viewport {
+    flex: 1;
+    position: relative;
+    border-bottom: 1px solid var(--border-hairline);
+    overflow: hidden;
+}
+
+#canvas-container-3d, #canvas-container-us {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#canvas-container-us canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Viewport HUD Metadata Overlays */
+.hud-text {
+    position: absolute;
+    z-index: 15;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    background: rgba(13, 19, 31, 0.78);
+    backdrop-filter: blur(8px);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-hairline);
+    pointer-events: none;
+    line-height: 1.45;
+}
+
+.top-left { top: 14px; left: 16px; }
+.top-right { top: 14px; right: 16px; text-align: right; }
+.hud-text h3 {
+    color: var(--accent-cyan);
+    font-size: 12px;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+}
+
+/* 2D Ultrasound Sonographic Monitor */
+#us-monitor {
+    background-color: var(--bg-monitor);
+    border-bottom: none;
+}
+
+/* Orientation Notch Marker */
+.screen-marker {
+    position: absolute;
+    top: 14px;
+    left: 115px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-cyan);
+    border-radius: 50%;
+    z-index: 20;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+/* Sonographic Depth Ruler on Right Border */
+.depth-ruler {
+    position: absolute;
+    right: 12px;
+    top: 50px;
+    bottom: 50px;
+    width: 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(148, 163, 184, 0.65);
+    z-index: 15;
+    pointer-events: none;
+    border-right: 1px solid rgba(148, 163, 184, 0.3);
+    padding-right: 5px;
+}
+
+.depth-tick {
+    position: relative;
+    line-height: 1;
+}
+
+.depth-tick::after {
+    content: '-';
+    position: absolute;
+    right: -7px;
+    top: 0;
+    color: rgba(148, 163, 184, 0.4);
+}
+
+/* Focal Zone Marker */
+.focal-caret {
+    position: absolute;
+    right: 3px;
+    top: 55%;
+    color: var(--accent-cyan);
+    font-size: 11px;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* Live Visuospatial Axis Orientation Badge */
+#axis-indicator {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 25;
+    background: rgba(13, 19, 31, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-hairline);
+    border-radius: 6px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.axis-badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.badge-short {
+    background: rgba(37, 99, 235, 0.25);
+    border: 1px solid var(--accent-blue);
+    color: #93c5fd;
+}
+
+.badge-long {
+    background: rgba(16, 185, 129, 0.25);
+    border: 1px solid var(--accent-emerald);
+    color: #6ee7b7;
+}
+
+.badge-oblique {
+    background: rgba(245, 158, 11, 0.25);
+    border: 1px solid var(--accent-amber);
+    color: #fde68a;
+}
+
+/* Desktop Probe Simulation Controller */
+.desktop-tester {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 20;
+    background: rgba(13, 19, 31, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.desktop-tester-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    margin-bottom: 6px;
+}
+
+.desktop-tester label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.desktop-tester input[type=range] {
+    width: 100px;
+    accent-color: var(--accent-cyan);
+    cursor: pointer;
+}
+
+/* Clinical Knobology Console */
+#clinical-console {
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-hairline);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    min-height: 64px;
+}
+
+.console-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+}
+
+.console-group input[type="range"] {
+    margin-top: 6px;
+    width: 200px;
+    accent-color: var(--accent-cyan);
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   LANDING & CALIBRATION OVERLAYS
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(4, 7, 13, 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.landing-card {
+    display: flex;
+    flex-direction: row;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    max-width: 840px;
+    width: 90%;
+}
+
+.landing-left {
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+}
+
+.landing-left h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.landing-left h4 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent-cyan);
+    margin-bottom: 18px;
+}
+
+.landing-left p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 28px;
+}
+
+.landing-btn-group {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-primary {
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 22px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 22px;
+    border-radius: 6px;
+    border: 1px solid var(--border-medium);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(148, 163, 184, 0.15);
+}
+
+.landing-right {
+    padding: 40px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-hairline);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 260px;
+}
+
+.qr-caption {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    text-align: center;
+}
+
+.qr-box {
+    background: #ffffff;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Equipment Safety Callout */
+.safety-callout {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    text-align: left;
+    font-size: 12px;
+    color: #fca5a5;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+}
+
+/* ==========================================================================
+   TRANSDUCER CODE INSPECTOR & LIVE TELEMETRY
+   ========================================================================== */
+.panel-tab-bar {
+    display: flex;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-hairline);
+    padding: 0 16px;
+    gap: 8px;
+}
+
+.panel-tab {
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.panel-tab:hover {
+    color: var(--text-primary);
+}
+
+.panel-tab.active {
+    color: var(--accent-cyan);
+    border-bottom-color: var(--accent-cyan);
+    background: rgba(56, 189, 248, 0.05);
+}
+
+.code-inspector-panel {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.code-window {
+    background: #040711;
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.code-window-header {
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-hairline);
+    padding: 8px 14px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.code-pre {
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.65;
+    color: #94a3b8;
+    overflow-x: auto;
+    margin: 0;
+}
+
+.kw { color: #f43f5e; font-weight: 600; }
+.fn { color: #38bdf8; font-weight: 600; }
+.vname { color: #a78bfa; }
+.str { color: #34d399; }
+.num { color: #fbbf24; }
+.cmt { color: #475569; font-style: italic; }
+
+.live-val {
+    display: inline-block;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    padding: 0 5px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+
+.telemetry-deck {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.telemetry-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.telemetry-title {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.telemetry-data {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+}
+
+/* Transducer Pairing Dropdown */
+.transducer-dropdown {
+    position: absolute;
+    top: 56px;
+    right: 24px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-medium);
+    border-radius: 12px;
+    padding: 20px;
+    width: 300px;
+    z-index: 500;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+    display: none;
+}
+
+.transducer-dropdown.show {
+    display: block;
+    animation: slideDown 0.2s ease-out;
+}
+
+.btn-pair-toggle {
+    background: var(--bg-surface);
+    color: var(--accent-cyan);
+    border: 1px solid var(--border-hairline);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.btn-pair-toggle:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--accent-cyan);
+}
+
+/* Animations */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   MOBILE REDIRECT SCREEN
+   ========================================================================== */
+#mobile-redirect {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg-canvas);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 9999;
+}
+
+.mobile-redirect-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-medium);
+    border-radius: 16px;
+    padding: 40px 32px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+}
+
+.mobile-redirect-logo {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--accent-cyan);
+    margin-bottom: 20px;
+}
+
+.mobile-redirect-headline {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+    line-height: 1.3;
+}
+
+.mobile-redirect-body {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 28px;
+}
+
+.mobile-redirect-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    text-align: left;
+}
+
+.mobile-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.mobile-step strong {
+    color: var(--text-primary);
+}
+
+.mobile-step-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+/* ==========================================================================
+   PROMINENT PIN STATION IN HEADER
+   ========================================================================== */
+.pin-station {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-accent);
+    border-radius: 8px;
+    padding: 4px 16px 6px;
+    gap: 0;
+}
+
+.pin-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.pin-value {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    color: var(--accent-cyan);
+    text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+}
+
+/* ==========================================================================
+   KaTeX formula callout override (ensure block display)
+   ========================================================================== */
+.formula-callout .katex-display {
+    margin: 0;
+}
+
+.formula-callout {
+    font-family: inherit;
+    overflow-x: auto;
+}
+
+/* Responsive Overrides */
+@media (max-width: 900px) {
+    #app-container {
+        flex-direction: column-reverse;
+    }
+    #education-panel {
+        width: 100%;
+        max-width: 100%;
+        height: 50vh;
+    }
+    #simulation-panel {
+        height: 50vh;
+    }
+    .landing-card {
+        flex-direction: column;
+    }
+    .landing-right {
+        border-left: none;
+        border-top: 1px solid var(--border-hairline);
+    }
+}
